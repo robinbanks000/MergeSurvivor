@@ -43,13 +43,27 @@ MERGE_BASE="$(git merge-base "$BASE" HEAD 2>/dev/null || echo "$BASE")"
 
 # Grant = write ∪ append. Read straight from the constitution so this can never
 # drift from what the orchestrator enforces at dispatch time.
+# Grants are keyed by division, not by agent: a hundred individual grants would
+# drift from the roster within weeks. The agent's division comes from the
+# registry, so the two documents cannot disagree about who may write what.
 mapfile -t ALLOWED < <(python3 -c "
-import json, sys
+import json, glob, sys
 agent = sys.argv[1]
+
+division = None
+for f in glob.glob('Studio/constitution/agents/*.json'):
+    for a in json.load(open(f))['agents']:
+        if a['id'] == agent:
+            division = a['division']
+            break
+if division is None:
+    sys.exit(0)
+
 data = json.load(open('$PERMISSIONS'))
-grants = [g for g in data['grants'] if g['agent'] == agent]
+grants = [g for g in data['grants'] if g['division'] == division]
 if not grants:
     sys.exit(0)
+
 g = grants[0]
 for p in g.get('write', []) + g.get('append', []):
     print(p)
