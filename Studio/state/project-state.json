@@ -28,6 +28,13 @@
       "assignedTo": "ceo-orchestrator"
     },
     {
+      "id": "WO-0007",
+      "title": "Give RunState a reproducible run identity: seed and tick count",
+      "level": "L3",
+      "status": "queued",
+      "priority": 1
+    },
+    {
       "id": "WO-0004",
       "title": "Add a combat model to Core so simulation can measure run length and win rate",
       "level": "L2",

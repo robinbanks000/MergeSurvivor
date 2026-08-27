@@ -1,0 +1,40 @@
+{
+  "id": "RPT-20260827-executive",
+  "division": "executive",
+  "boss": "ceo-orchestrator",
+  "periodStart": "2026-08-26T00:00:00Z",
+  "periodEnd": "2026-08-27T00:00:00Z",
+  "completed": [],
+  "inFlight": ["WO-0006"],
+  "blocked": [
+    {
+      "what": "The entire product-design division (11 agents) and gate G1",
+      "blockedOn": "Studio/constitution/PILLARS.md and NON_GOALS.md do not exist. These are L0 documents that no agent may author, so only the founder can clear this.",
+      "taskId": "WO-0002",
+      "sinceDays": 1
+    },
+    {
+      "what": "Combat model in Core, and the four balance and simulation agents that depend on it",
+      "blockedOn": "No combat design specification exists, because product-design is dormant awaiting WO-0002.",
+      "taskId": "WO-0004",
+      "sinceDays": 1
+    },
+    {
+      "what": "Gate G2 is bypassable by merging around CODEOWNERS",
+      "blockedOn": "Branch protection is not enabled on main with required status check 'G2 Code Gate' and Code Owner review. Infrastructure may propose but may never edit the gates, so this is a founder action."
+    },
+    {
+      "what": "Gate G3, so the Unity adapter layer stays unverified",
+      "blockedOn": "UNITY_LICENSE and the other GameCI secrets are absent, so G3 skips rather than runs."
+    }
+  ],
+  "proposalsRaised": [],
+  "challengesRaised": [],
+  "spend": {
+    "currency": "DKK",
+    "periodSpend": 2,
+    "budgetHardStop": 40
+  },
+  "needsFounderAttention": [],
+  "notes": "Priority ruling for this period: WO-0007, giving RunState a seed and a tick counter, takes priority 1 and the next unit of engineering and quality capacity. It is the right piece of work precisely because it needs no design input. Run identity is not a game-design question about what the game should be; it is determinism plumbing that ADR-0001 already committed the studio to when it required all randomness to come from a seeded IRng and all time to arrive as a dt parameter. RunState today carries score, kills, elapsed seconds and an is-over flag, and neither a seed nor a tick count, so a run cannot be named or replayed: no agent can write 'run seed 8817441 at tick 4200' in a defect report because neither number exists. That makes every seeded-replay claim downstream unfalsifiable, weakens the regression ratchet on which the whole verification model rests, and means the headless balance simulation waiting behind WO-0004 would be built on runs nobody can reproduce. Engineering can implement it entirely inside Assets/Core with no UnityEngine reference, and quality can test it in milliseconds with no Unity licence, so both active divisions can finish it while product-design stays dormant. It is L3 and reversible, and its cost is small against the value of unblocking reproducibility before more code depends on the unreproducible shape. Boundaries observed: I have not written the WO-0007 work order or its acceptance criteria; that is work-order-author's job, deliberately separated so no one defines the success criteria of work they will also judge. I have marked nothing complete; completion comes only from a gate verdict. The four founder items above are already carried in the humanQueue of project-state, so needsFounderAttention is empty rather than inflated with escalation records that do not exist. WO-0002 remains the single highest-value founder action: it alone releases eleven agents and gate G1."
+}
