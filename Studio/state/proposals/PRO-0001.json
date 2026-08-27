@@ -1,0 +1,17 @@
+{
+  "id": "PRO-0001",
+  "raisedBy": "engineering-director",
+  "raisedAt": "2026-08-27T16:00:00Z",
+  "problem": "WO-0007 criterion 10 requires RunState to keep a parameterless constructor because Assets/Unity/GameManager.cs line 15 initialises its run with `new RunState()`. Criterion 9 correctly forces the resulting default to be a fixed documented constant rather than a clock or global counter, so the outcome is deterministic and the criterion is satisfiable. The residual problem is not in Core and not in WO-0007: once WO-0007 lands, every run the Unity shell ever plays will carry the same constant seed, the shell has no way to vary it, and no way to display it. The bug report format WO-0007 exists to enable -- 'seed X at tick Y' -- would therefore always read with the same X from the only place a human actually plays the game, which is a weaker signal than it looks.",
+  "evidence": [
+    "Assets/Unity/GameManager.cs:15 -- `public RunState Run { get; } = new RunState();` with no seed argument and no seed accessor on the MonoBehaviour",
+    "Studio/orders/open/WO-0007.json acceptance criteria 9 and 10, read together: the default seed is required to be a fixed constant, and the parameterless constructor is required to remain",
+    "Studio/decisions/ADR-0001.json: 'runs are reproducible from a seed' is the stated consequence that justifies Core being engine-free",
+    "Assets/Core/Rng/XorShiftRng.cs:26 -- the studio's existing pattern of exposing reproducible position (State) so it can be persisted and reported"
+  ],
+  "proposedWork": "A follow-up L3 work order, scoped to Assets/Unity/** and dispatched only after WO-0007 passes its gate, that changes GameManager to construct RunState with an explicit seed supplied by the shell (a serialised inspector field, defaulting to RunState's documented constant so existing scenes behave identically), and to expose that seed and the run's TickCount for read-only display and logging. The parameterless RunState constructor stays as WO-0007 requires it; this proposal changes only which constructor the shell chooses to call.",
+  "expectedBenefit": "Makes the seed/tick coordinate that WO-0007 builds actually observable and variable at the one place a human plays the game, so a defect found in the editor can be replayed. Without it Core gains a reproducibility handle that the shell never turns.",
+  "estimatedCost": 4,
+  "priority": 3,
+  "status": "open"
+}
