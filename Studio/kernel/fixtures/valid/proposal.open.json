@@ -1,0 +1,12 @@
+{
+  "id": "PRO-0001",
+  "raisedBy": "performance-engineer",
+  "raisedAt": "2026-08-27T12:00:00Z",
+  "problem": "The bullet pool prewarms 32 instances but sustained fire at tier 8 needs roughly 140, so the pool grows by Instantiate mid-fight.",
+  "evidence": ["EVD-0002", "Studio/evidence/sims/metrics.json"],
+  "proposedWork": "Raise prewarm to the measured p99 concurrent bullet count and add a PlayMode test asserting the pool never grows during a sustained-fire burst.",
+  "expectedBenefit": "Removes the largest remaining allocation spike in the fire path.",
+  "estimatedCost": 4,
+  "priority": 2,
+  "status": "open"
+}

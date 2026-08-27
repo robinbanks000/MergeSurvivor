@@ -28,6 +28,12 @@ echo "=== T0: write scope ==="
 ./Studio/build/check-write-scope.sh ${WORK_ORDER_AGENT:+--agent "$WORK_ORDER_AGENT"}
 
 echo
+echo "=== T0: agent definitions match the registry ==="
+# The registry is the source of truth; a hand-edited agent file would tell an
+# agent it may do something the permission matrix refuses.
+./Studio/build/generate-agent-definitions.sh --check
+
+echo
 echo "=== T0: build (warnings are errors) ==="
 dotnet build Studio/build/MergeSurvivor.sln --nologo
 

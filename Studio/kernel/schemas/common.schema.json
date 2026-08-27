@@ -13,15 +13,32 @@
       "minLength": 1
     },
     "agentId": {
-      "description": "The five roles in the studio. Adding a sixth requires an ADR and a change here, which is what stops agent-sprawl from happening by accident.",
+      "description": "An agent identifier. Deliberately a pattern rather than an enum: a 104-agent roster cannot live in a schema enum without every staffing change becoming a schema change. The closed set is enforced instead by KernelCrossCheckTests against the registry, which also catches ids referenced but never defined.",
       "type": "string",
-      "enum": [
-        "orchestrator",
-        "design-architect",
-        "gameplay-engineer",
-        "qa-adversary",
-        "balance-simulator"
-      ]
+      "pattern": "^[a-z][a-z0-9-]{2,40}$"
+    },
+    "divisionId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{2,30}$"
+    },
+    "agentTier": {
+      "description": "ceo reports to the founder; boss runs a division; specialist does the work.",
+      "type": "string",
+      "enum": ["ceo", "boss", "specialist"]
+    },
+    "modelTier": {
+      "description": "Which model an agent runs on. This is a cost control, not a preference: at the studio's ceiling an Opus task costs roughly ten times a batched Haiku one, so the default is haiku and anything above it must earn its place.",
+      "type": "string",
+      "enum": ["haiku", "sonnet", "opus"]
+    },
+    "currency": {
+      "description": "Always stated explicitly. An unlabelled '300' was read as USD when it meant DKK, a tenfold error that reached a committed budget file before anyone noticed.",
+      "type": "string",
+      "enum": ["DKK", "USD"]
+    },
+    "amount": {
+      "type": "number",
+      "minimum": 0
     },
     "actorId": {
       "description": "Anything that can act: an agent, the founder, or automated CI.",
@@ -65,13 +82,15 @@
     "evidenceId": { "type": "string", "pattern": "^EVD-[0-9]{4,}$" },
     "escalationId": { "type": "string", "pattern": "^ESC-[0-9]{4,}$" },
     "failureId": { "type": "string", "pattern": "^FAIL-[0-9]{4,}$" },
-    "budgetId": { "type": "string", "pattern": "^BUD-[0-9]{4,}$" },
+    "budgetId": { "type": "string", "pattern": "^BUD-[A-Z0-9-]{2,24}$" },
+    "proposalId": { "type": "string", "pattern": "^PRO-[0-9]{4,}$" },
+    "challengeId": { "type": "string", "pattern": "^CHA-[0-9]{4,}$" },
+    "reportId": { "type": "string", "pattern": "^RPT-[0-9]{8}-[a-z][a-z0-9-]{2,30}$" },
     "evidenceIdList": {
       "type": "array",
       "items": { "$ref": "#/$defs/evidenceId" },
       "uniqueItems": true
     },
-    "usd": { "type": "number", "minimum": 0 },
     "retryBudget": {
       "description": "Capped at 3 by the architecture: after three failed attempts an agent must escalate with a hypothesis rather than keep guessing.",
       "type": "integer",

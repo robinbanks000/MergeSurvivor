@@ -1,13 +1,15 @@
 {
-  "version": 1,
-  "updatedAt": "2026-08-27T00:00:00Z",
+  "version": 2,
+  "updatedAt": "2026-08-27T14:30:00Z",
   "layers": [
     {
       "layer": "L0",
       "name": "Constitution",
       "path": "Studio/constitution/",
       "writePolicy": "human-only",
-      "writers": ["human"],
+      "writers": [
+        "human"
+      ],
       "budget": {
         "maxWords": 1500,
         "note": "Small enough that every agent can carry it in context on every task. If it grows past this, something belongs in an ADR instead."
@@ -20,12 +22,14 @@
       "name": "Decisions",
       "path": "Studio/decisions/",
       "writePolicy": "append-only",
-      "writers": ["orchestrator"],
+      "writers": [
+        "ceo-orchestrator"
+      ],
       "budget": {
         "maxEntries": 500,
         "note": "Unbounded by design, but the index stays under one page. A changed mind is a new ADR superseding the old, never an edit."
       },
-      "compactionOwner": "orchestrator",
+      "compactionOwner": "ceo-orchestrator",
       "loadedByDefault": false
     },
     {
@@ -33,12 +37,15 @@
       "name": "State",
       "path": "Studio/state/",
       "writePolicy": "mutable",
-      "writers": ["orchestrator"],
+      "writers": [
+        "ceo-orchestrator",
+        "chief-of-staff"
+      ],
       "budget": {
         "maxEntries": 200,
         "note": "The only high-churn layer. Rewritten constantly; history lives in git."
       },
-      "compactionOwner": "orchestrator",
+      "compactionOwner": "chief-of-staff",
       "loadedByDefault": false
     },
     {
@@ -46,7 +53,16 @@
       "name": "Evidence",
       "path": "Studio/evidence/",
       "writePolicy": "write-once",
-      "writers": ["orchestrator", "design-architect", "gameplay-engineer", "qa-adversary", "balance-simulator", "ci"],
+      "writers": [
+        "ceo-orchestrator",
+        "chief-of-staff",
+        "engineering-director",
+        "qa-director",
+        "balance-director",
+        "design-director",
+        "infra-director",
+        "ci"
+      ],
       "budget": {
         "retentionDays": 30,
         "note": "Pruned after 30 days except named baselines. Never edited: rewriting a test result after the fact is how a system starts lying to itself."
@@ -59,12 +75,18 @@
       "name": "Lessons",
       "path": "Studio/lessons/",
       "writePolicy": "append-only",
-      "writers": ["orchestrator", "design-architect", "gameplay-engineer", "qa-adversary", "balance-simulator"],
+      "writers": [
+        "ceo-orchestrator",
+        "chief-of-staff",
+        "lessons-promoter",
+        "qa-director",
+        "engineering-director"
+      ],
       "budget": {
         "maxEntries": 100,
         "note": "At the cap, recurring rules are promoted into analyzers or tests. A lesson that can be enforced should stop being remembered."
       },
-      "compactionOwner": "orchestrator",
+      "compactionOwner": "memory-curator",
       "loadedByDefault": false
     }
   ]

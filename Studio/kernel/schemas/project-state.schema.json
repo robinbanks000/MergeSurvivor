@@ -42,6 +42,12 @@
       "items": { "$ref": "#/$defs/agentStatus" },
       "uniqueItems": true
     },
+    "blockedDependencies": {
+      "description": "Active agents waiting on a dormant dependency, as \"agent -> dependency\". Declared rather than inferred so a silent blockage is impossible: OrgCrossCheckTests requires this list to match reality exactly.",
+      "type": "array",
+      "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+      "uniqueItems": true
+    },
     "openEscalations": {
       "type": "array",
       "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/escalationId" },
@@ -94,11 +100,15 @@
         "agent": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
         "state": {
           "type": "string",
-          "enum": ["idle", "working", "blocked", "paused", "not_yet_created"]
+          "enum": ["idle", "working", "blocked", "paused", "dormant", "not_yet_created"]
         },
+        "division": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/divisionId" },
         "currentTaskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
         "lastHeartbeatAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
-        "spentThisPeriodUsd": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/usd" }
+        "spentThisPeriod": {
+          "description": "In the currency declared by the budget registry. Never an unlabelled number.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/amount"
+        }
       },
       "allOf": [
         {

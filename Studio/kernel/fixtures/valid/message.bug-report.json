@@ -1,9 +1,10 @@
 {
   "id": "MSG-0002",
   "at": "2026-08-27T11:00:00Z",
-  "from": "qa-adversary",
-  "to": "orchestrator",
+  "from": "property-fuzz-engineer",
+  "to": "qa-director",
+  "route": "report-to-boss",
   "intent": "bug-report",
-  "body": "WaveScheduler.Tick loses spawns when dt is negative; it should reject the input instead of silently rewinding the timer.",
+  "body": "Seed 8817441 violates the merge premium invariant at tier 6: the merged weapon yields 0.97x the pair's DPS.",
   "taskId": "WO-0142"
 }

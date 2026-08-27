@@ -1,0 +1,11 @@
+{
+  "id": "MSG-0003",
+  "at": "2026-08-27T11:30:00Z",
+  "from": "property-fuzz-engineer",
+  "to": "qa-director",
+  "route": "challenge-via-boss",
+  "intent": "challenge",
+  "subject": "core-simulation-engineer",
+  "challengeId": "CHA-0001",
+  "body": "The stated determinism invariant does not hold for negative dt; the tick silently rewinds instead of rejecting the input."
+}

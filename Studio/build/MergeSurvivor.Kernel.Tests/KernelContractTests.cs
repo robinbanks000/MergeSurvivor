@@ -49,13 +49,14 @@ namespace MergeSurvivor.Kernel.Tests
         }
 
         [Test]
-        public void AllThirteenContractsExist()
+        public void EveryContractSchemaExists()
         {
             string[] expected =
             {
                 "common.schema.json",
                 "task.schema.json",
                 "agent.schema.json",
+                "org.schema.json",
                 "event.schema.json",
                 "message.schema.json",
                 "memory.schema.json",
@@ -66,7 +67,10 @@ namespace MergeSurvivor.Kernel.Tests
                 "permission.schema.json",
                 "escalation.schema.json",
                 "failure.schema.json",
-                "cost.schema.json"
+                "cost.schema.json",
+                "proposal.schema.json",
+                "challenge.schema.json",
+                "division-report.schema.json"
             };
 
             Assert.That(Kernel.Schemas.Keys, Is.EquivalentTo(expected));

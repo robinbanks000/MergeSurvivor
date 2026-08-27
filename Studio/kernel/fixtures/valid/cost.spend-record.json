@@ -1,12 +1,15 @@
 {
   "kind": "spend-record",
   "at": "2026-08-27T10:30:00Z",
-  "budgetId": "BUD-0004",
-  "actor": "gameplay-engineer",
+  "budgetId": "BUD-ENG",
+  "actor": "core-simulation-engineer",
   "taskId": "WO-0142",
-  "usd": 0.84,
-  "model": "claude-opus-5",
-  "inputTokens": 48210,
-  "outputTokens": 6130,
+  "currency": "DKK",
+  "amount": 0.41,
+  "model": "haiku",
+  "inputTokens": 12400,
+  "cachedInputTokens": 31800,
+  "outputTokens": 3900,
+  "batched": true,
   "runtime": "github-action"
 }

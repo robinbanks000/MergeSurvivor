@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/org.schema.json",
+  "title": "Organisation structure",
+  "description": "Divisions and reporting lines. Separated from the agent registry because the shape of the company changes far less often than its staffing, and because message routing is validated against this file rather than against 104 individual agent records.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "updatedAt", "chiefExecutive", "divisions"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "updatedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "chiefExecutive": {
+      "description": "The single agent that reports to the founder. Exactly one exists; KernelCrossCheckTests enforces that no other agent has reportsTo 'human'.",
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId"
+    },
+    "divisions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/division" }
+    }
+  },
+  "$defs": {
+    "division": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "mandate", "boss", "writeScope", "budgetId"],
+      "properties": {
+        "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/divisionId" },
+        "name": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+        "mandate": {
+          "description": "What this division is accountable for. Two divisions with overlapping mandates is the organisational form of a duplicate agent.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString"
+        },
+        "boss": {
+          "description": "The division head. Every specialist in the division reports to this agent, and all outbound messages route through it.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId"
+        },
+        "writeScope": {
+          "description": "The union of paths this division may write. Agent grants are derived from this rather than listed per agent — 104 individual grants would be unmaintainable and would drift.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlobList"
+        },
+        "budgetId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/budgetId" },
+        "activatesWhen": {
+          "description": "Machine-readable precondition for the division doing any work at all. A division whose precondition is unmet costs nothing.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString"
+        }
+      }
+    }
+  }
+}

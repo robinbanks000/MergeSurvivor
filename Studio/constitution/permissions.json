@@ -1,94 +1,92 @@
 {
-  "version": 2,
-  "updatedAt": "2026-08-27T12:30:00Z",
+  "version": 3,
+  "updatedAt": "2026-08-27T14:00:00Z",
   "humanExclusivePaths": [
     ".github/workflows/**",
     "Studio/build/**",
     "Studio/constitution/**",
     "Studio/kernel/schemas/**",
     "ProjectSettings/**",
-    "Assets/Monetization/**",
-    "Assets/Analytics/**"
+    "Assets/Monetization/**"
   ],
   "grants": [
     {
-      "agent": "orchestrator",
-      "write": [
-        "Studio/state/**",
-        "Studio/decisions/**",
-        "Studio/orders/**",
-        "Studio/evidence/**"
-      ],
-      "read": [
-        "**"
-      ],
-      "append": [
-        "Studio/lessons/**"
-      ]
+      "division": "executive",
+      "write": ["Studio/state/**", "Studio/decisions/**", "Studio/orders/**", "Studio/evidence/**"],
+      "read": ["**"],
+      "append": ["Studio/lessons/**"]
     },
     {
-      "agent": "design-architect",
-      "write": [
-        "GameDesign/**",
-        "Assets/Data/**",
-        "Studio/evidence/**"
-      ],
-      "read": [
-        "Studio/constitution/**",
-        "Studio/decisions/**",
-        "Assets/**"
-      ],
-      "append": [
-        "Studio/lessons/**"
-      ]
+      "division": "studio-ops",
+      "write": ["Studio/state/**", "Studio/orders/**", "Studio/evidence/**"],
+      "read": ["**"],
+      "append": ["Studio/lessons/**"]
     },
     {
-      "agent": "gameplay-engineer",
-      "write": [
-        "Assets/Core/**",
-        "Assets/Unity/**",
-        "Assets/Tests/**",
-        "Studio/evidence/**"
-      ],
-      "read": [
-        "Studio/constitution/**",
-        "Studio/decisions/**",
-        "GameDesign/**",
-        "Assets/**"
-      ],
-      "append": [
-        "Studio/lessons/**"
-      ]
+      "division": "product-design",
+      "write": ["GameDesign/**", "Assets/Data/**", "Studio/evidence/**"],
+      "read": ["Studio/constitution/**", "Studio/decisions/**", "Assets/**", "Studio/sim/**"],
+      "append": ["Studio/lessons/**"]
     },
     {
-      "agent": "qa-adversary",
-      "write": [
-        "Assets/Tests/**",
-        "Studio/evidence/**"
-      ],
-      "read": [
-        "**"
-      ],
-      "append": [
-        "Studio/lessons/**"
-      ]
+      "division": "engineering",
+      "write": ["Assets/Core/**", "Assets/Unity/**", "Assets/Tests/**", "Studio/evidence/**"],
+      "read": ["Studio/constitution/**", "Studio/decisions/**", "GameDesign/**", "Assets/**", "Studio/sim/**"],
+      "append": ["Studio/lessons/**"]
     },
     {
-      "agent": "balance-simulator",
-      "write": [
-        "Assets/Data/Tuning/**",
-        "Studio/sim/**",
-        "Studio/evidence/**"
-      ],
-      "read": [
-        "Studio/constitution/**",
-        "Studio/decisions/**",
-        "Assets/Core/**",
-        "Assets/Data/**"
-      ],
-      "append": [
-        "Studio/lessons/**"
-      ]
+      "division": "quality",
+      "write": ["Assets/Tests/**", "Studio/evidence/**"],
+      "read": ["**"],
+      "append": ["Studio/lessons/**"]
+    },
+    {
+      "division": "balance-sim",
+      "write": ["Assets/Data/Tuning/**", "Studio/sim/**", "Studio/evidence/**"],
+      "read": ["Studio/constitution/**", "Studio/decisions/**", "Assets/Core/**", "Assets/Data/**", "GameDesign/**"],
+      "append": ["Studio/lessons/**"]
+    },
+    {
+      "division": "content-art",
+      "write": ["Assets/Art/**", "GameDesign/art/**", "Studio/evidence/**"],
+      "read": ["Studio/constitution/**", "GameDesign/**", "Assets/**"],
+      "append": ["Studio/lessons/**"]
+    },
+    {
+      "division": "audio",
+      "write": ["Assets/Audio/**", "GameDesign/audio/**", "Studio/evidence/**"],
+      "read": ["Studio/constitution/**", "GameDesign/**", "Assets/**"],
+      "append": ["Studio/lessons/**"]
+    },
+    {
+      "division": "data-analytics",
+      "write": ["Assets/Analytics/schema/**", "Studio/state/analytics/**", "Studio/evidence/**"],
+      "read": ["Studio/constitution/**", "GameDesign/**", "Assets/**", "Studio/state/**"],
+      "append": ["Studio/lessons/**"]
+    },
+    {
+      "division": "live-ops",
+      "write": ["Studio/state/liveops/**", "Assets/Data/RemoteConfig/**", "Studio/evidence/**"],
+      "read": ["**"],
+      "append": ["Studio/lessons/**"]
+    },
+    {
+      "division": "growth",
+      "write": ["GameDesign/market/**", "Studio/state/growth/**", "Studio/evidence/**"],
+      "read": ["Studio/constitution/**", "GameDesign/**", "Studio/state/**"],
+      "append": ["Studio/lessons/**"]
+    },
+    {
+      "division": "compliance",
+      "write": ["Studio/state/compliance/**", "GameDesign/legal/**", "Studio/evidence/**"],
+      "read": ["**"],
+      "append": ["Studio/lessons/**"]
+    },
+    {
+      "division": "infrastructure",
+      "write": ["Studio/state/infra/**", "Studio/evidence/**", "Packages/**"],
+      "read": ["**"],
+      "append": ["Studio/lessons/**"]
     }
   ]
 }

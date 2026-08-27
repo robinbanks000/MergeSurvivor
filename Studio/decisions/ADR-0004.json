@@ -1,0 +1,16 @@
+{
+  "id": "ADR-0004",
+  "title": "The studio is a hundred-agent division hierarchy, not four generalists",
+  "status": "accepted",
+  "level": "L1",
+  "reversible": true,
+  "proposedBy": "orchestrator",
+  "proposedAt": "2026-08-27T14:00:00Z",
+  "ratifiedBy": "human",
+  "decidedAt": "2026-08-27T14:00:00Z",
+  "autoDefaultAllowed": true,
+  "context": "The original architecture document argued for four specialists and treated headcount as the thing to minimise, on the reasoning that agents should be carved by verification boundary rather than by job title. The founder corrected that direction: a real studio has roughly a hundred distinct responsibilities, and collapsing them into four means most of those responsibilities have no owner at all. The anti-sprawl concern was legitimate but was addressed in the wrong place — the answer is not fewer roles, it is roles that must prove they are distinct. This supersedes the roster in AI_STUDIO_ARCHITECTURE.md only; ADR-0001's Core/Unity split is untouched and remains the foundation the whole verification story rests on.",
+  "decision": "One hundred agents in twelve divisions plus an executive, each with a required reason for existing, a measurable output no other agent claims, an explicit decision boundary and a machine-readable activation precondition. Seventy are dormant at launch and hold no budget. Anti-sprawl moves from a headcount limit into mechanical checks: duplicate and near-duplicate measurable outputs fail the build, as do duplicate success metrics, unresolvable reporting lines, agents that can only read, and any expensive model outside four named roles.",
+  "consequences": "Every responsibility a game studio has now has a named owner, and dormant roles activate without restructuring. The cost is that the roster is only affordable under strict discipline: seventy-one of the hundred run on the cheapest model, the shared prompt prefix must stay byte-identical, and non-interactive work must batch. Communication also had to change — the previous hub-and-spoke rule would have made the chief executive a bottleneck for every message — so routing now follows the org chart and grows linearly rather than quadratically.",
+  "documentPath": "Studio/constitution/org.json"
+}

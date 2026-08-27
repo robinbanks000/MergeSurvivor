@@ -1,24 +1,17 @@
 {
-  "version": 2,
-  "updatedAt": "2026-08-27T13:20:00Z",
+  "version": 3,
+  "updatedAt": "2026-08-27T14:30:00Z",
   "phase": {
-    "current": 2,
-    "name": "CI verification gates and automated QA foundation",
+    "current": 3,
+    "name": "Hundred-agent organisation",
     "blockedOn": [
-      "UNITY_LICENSE/UNITY_EMAIL/UNITY_PASSWORD secrets absent, so G3 skips and the Unity layer stays unverified",
+      "PILLARS.md and NON_GOALS.md do not exist; the entire product-design division (11 agents) and G1 cannot operate",
       "Branch protection not enabled, so CODEOWNERS is documentation and G2 can be bypassed by merging around it",
-      "PILLARS.md and NON_GOALS.md do not exist; G1 cannot run and Design Architect is blocked in Phase 3",
-      "Core has no combat model, so G4 is limited to structural invariants"
+      "UNITY_LICENSE secrets absent, so G3 skips and the Unity layer stays unverified",
+      "Core has no combat model, so four balance and simulation agents remain dormant"
     ]
   },
   "backlog": [
-    {
-      "id": "WO-0001",
-      "title": "Wire kernel contract validation into the G2 gate in CI",
-      "level": "L1",
-      "status": "completed",
-      "priority": 1
-    },
     {
       "id": "WO-0002",
       "title": "Author PILLARS.md and NON_GOALS.md",
@@ -27,28 +20,19 @@
       "priority": 1
     },
     {
-      "id": "WO-0003",
-      "title": "Build the headless simulation harness the balance gate depends on",
+      "id": "WO-0006",
+      "title": "Generate agent definitions for the active roster and run the six-agent canary",
       "level": "L1",
-      "status": "completed",
-      "priority": 2
+      "status": "in_progress",
+      "priority": 1,
+      "assignedTo": "ceo-orchestrator"
     },
     {
       "id": "WO-0004",
-      "title": "Add a combat model to Core so T3 can measure run length and win rate",
+      "title": "Add a combat model to Core so simulation can measure run length and win rate",
       "level": "L2",
       "status": "queued",
       "priority": 2,
-      "blockedBy": [
-        "WO-0002"
-      ]
-    },
-    {
-      "id": "WO-0005",
-      "title": "Create the Gameplay Engineer and QA Adversary agents and run the end-to-end canary",
-      "level": "L1",
-      "status": "queued",
-      "priority": 1,
       "blockedBy": [
         "WO-0002"
       ]
@@ -56,33 +40,168 @@
   ],
   "agentStatus": [
     {
-      "agent": "orchestrator",
+      "agent": "balance-director",
+      "division": "balance-sim",
+      "state": "idle"
+    },
+    {
+      "agent": "simulation-harness-engineer",
+      "division": "balance-sim",
+      "state": "idle"
+    },
+    {
+      "agent": "progression-curve-analyst",
+      "division": "balance-sim",
+      "state": "idle"
+    },
+    {
+      "agent": "engineering-director",
+      "division": "engineering",
+      "state": "idle"
+    },
+    {
+      "agent": "core-simulation-engineer",
+      "division": "engineering",
+      "state": "idle"
+    },
+    {
+      "agent": "merge-systems-engineer",
+      "division": "engineering",
+      "state": "idle"
+    },
+    {
+      "agent": "combat-systems-engineer",
+      "division": "engineering",
+      "state": "idle"
+    },
+    {
+      "agent": "unity-shell-engineer",
+      "division": "engineering",
+      "state": "idle"
+    },
+    {
+      "agent": "performance-engineer",
+      "division": "engineering",
+      "state": "idle"
+    },
+    {
+      "agent": "build-toolchain-engineer",
+      "division": "engineering",
+      "state": "idle"
+    },
+    {
+      "agent": "ceo-orchestrator",
+      "division": "executive",
       "state": "working",
-      "currentTaskId": "WO-0001"
+      "currentTaskId": "WO-0006"
     },
     {
-      "agent": "design-architect",
-      "state": "not_yet_created"
+      "agent": "infra-director",
+      "division": "infrastructure",
+      "state": "idle"
     },
     {
-      "agent": "gameplay-engineer",
-      "state": "not_yet_created"
+      "agent": "ci-cd-engineer",
+      "division": "infrastructure",
+      "state": "idle"
     },
     {
-      "agent": "qa-adversary",
-      "state": "not_yet_created"
+      "agent": "dependency-supply-chain-auditor",
+      "division": "infrastructure",
+      "state": "idle"
     },
     {
-      "agent": "balance-simulator",
-      "state": "not_yet_created"
+      "agent": "secrets-security-auditor",
+      "division": "infrastructure",
+      "state": "idle"
+    },
+    {
+      "agent": "qa-director",
+      "division": "quality",
+      "state": "idle"
+    },
+    {
+      "agent": "core-logic-test-engineer",
+      "division": "quality",
+      "state": "idle"
+    },
+    {
+      "agent": "property-fuzz-engineer",
+      "division": "quality",
+      "state": "idle"
+    },
+    {
+      "agent": "integration-test-engineer",
+      "division": "quality",
+      "state": "idle"
+    },
+    {
+      "agent": "adversarial-red-team",
+      "division": "quality",
+      "state": "idle"
+    },
+    {
+      "agent": "regression-curator",
+      "division": "quality",
+      "state": "idle"
+    },
+    {
+      "agent": "test-data-curator",
+      "division": "quality",
+      "state": "idle"
+    },
+    {
+      "agent": "chief-of-staff",
+      "division": "studio-ops",
+      "state": "idle"
+    },
+    {
+      "agent": "work-order-author",
+      "division": "studio-ops",
+      "state": "idle"
+    },
+    {
+      "agent": "escalation-manager",
+      "division": "studio-ops",
+      "state": "idle"
+    },
+    {
+      "agent": "memory-curator",
+      "division": "studio-ops",
+      "state": "idle"
+    },
+    {
+      "agent": "lessons-promoter",
+      "division": "studio-ops",
+      "state": "idle"
+    },
+    {
+      "agent": "agent-performance-auditor",
+      "division": "studio-ops",
+      "state": "idle"
+    },
+    {
+      "agent": "cost-controller",
+      "division": "studio-ops",
+      "state": "idle"
+    },
+    {
+      "agent": "registry-manager",
+      "division": "studio-ops",
+      "state": "idle"
     }
   ],
   "openEscalations": [],
   "humanQueue": [
-    "Add Unity CI secrets for GameCI so G3 can run",
+    "Author the game pillars and non-goals, which no agent may write and which block eleven agents",
     "Enable branch protection on main with required status check 'G2 Code Gate' and Code Owner review",
-    "Confirm the Unity editor version pinned in ProjectSettings/ProjectVersion.txt",
-    "Open the project in Unity once and commit the generated ProjectSettings assets",
-    "Author the game pillars and non-goals, which no agent may write"
+    "Add Unity CI secrets for GameCI so G3 can run",
+    "Open the project in Unity once and commit the generated ProjectSettings assets"
+  ],
+  "blockedDependencies": [
+    "balance-director -> design-director",
+    "combat-systems-engineer -> combat-designer",
+    "engineering-director -> design-director",
+    "merge-systems-engineer -> merge-systems-designer"
   ]
 }

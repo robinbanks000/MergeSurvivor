@@ -2,51 +2,106 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mergesurvivor.studio/kernel/message.schema.json",
   "title": "Communication contract",
-  "description": "The blackboard protocol. Agents do not talk to each other: N-way chat grows quadratically, poisons context and leaves no audit trail. Every message has the orchestrator on one end, and this schema makes that structurally impossible to violate.",
+  "description": "Hierarchical routing. The earlier hub-and-spoke rule put the orchestrator on every message, which made it the bottleneck for the whole studio the moment the roster passed a handful of agents. Routing now follows the org chart, so traffic grows with the number of agents rather than with the square of it. Arbitrary agent-to-agent chat remains unrepresentable.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "at", "from", "to", "intent", "body"],
+  "required": ["id", "at", "from", "to", "route", "intent", "body"],
   "properties": {
     "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/messageId" },
     "at": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
     "from": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId" },
     "to": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId" },
+    "route": {
+      "description": "Which of the five legal paths this message travels. Declared rather than inferred, so a malformed route is a schema failure instead of something the cross-checks have to reconstruct from the org chart.",
+      "type": "string",
+      "enum": [
+        "report-to-boss",
+        "boss-to-report",
+        "boss-to-boss",
+        "boss-to-ceo",
+        "ceo-to-boss",
+        "ceo-to-human",
+        "human-to-ceo",
+        "challenge-via-boss"
+      ]
+    },
     "intent": {
       "type": "string",
-      "enum": ["dispatch", "result", "question", "answer", "bug-report", "notice"]
+      "enum": [
+        "dispatch",
+        "result",
+        "question",
+        "answer",
+        "proposal",
+        "challenge",
+        "bug-report",
+        "division-report",
+        "notice"
+      ]
     },
     "body": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
     "taskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+    "proposalId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/proposalId" },
+    "challengeId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/challengeId" },
+    "reportId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/reportId" },
+    "subject": {
+      "description": "For a challenge, the agent whose work is being disputed. The message still goes to the shared boss; this names who it is about.",
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId"
+    },
     "inReplyTo": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/messageId" },
     "attachments": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlobList" }
   },
   "allOf": [
     {
-      "description": "The hub-and-spoke rule: the orchestrator must be the sender or the recipient. A gameplay-engineer to qa-adversary message cannot be represented at all.",
-      "anyOf": [
-        {
-          "properties": { "from": { "const": "orchestrator" } },
-          "required": ["from"]
-        },
-        {
-          "properties": { "to": { "const": "orchestrator" } },
-          "required": ["to"]
-        }
-      ]
-    },
-    {
-      "description": "Nobody may address themselves.",
-      "not": {
+      "description": "Only the chief executive talks to the founder.",
+      "if": {
+        "properties": { "route": { "enum": ["ceo-to-human", "human-to-ceo"] } },
+        "required": ["route"]
+      },
+      "then": {
         "anyOf": [
-          {
-            "properties": {
-              "from": { "const": "orchestrator" },
-              "to": { "const": "orchestrator" }
-            },
-            "required": ["from", "to"]
-          }
+          { "properties": { "from": { "const": "human" } }, "required": ["from"] },
+          { "properties": { "to": { "const": "human" } }, "required": ["to"] }
         ]
       }
+    },
+    {
+      "description": "Every other route is between agents. The founder is not a routing hop in the middle of the org.",
+      "if": {
+        "properties": {
+          "route": {
+            "enum": ["report-to-boss", "boss-to-report", "boss-to-boss", "boss-to-ceo", "ceo-to-boss", "challenge-via-boss"]
+          }
+        },
+        "required": ["route"]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            { "properties": { "from": { "const": "human" } }, "required": ["from"] },
+            { "properties": { "to": { "const": "human" } }, "required": ["to"] }
+          ]
+        }
+      }
+    },
+    {
+      "description": "A challenge must name whose work is disputed, and is addressed to the shared boss rather than to that agent. Disagreement is adjudicated, never argued directly between peers.",
+      "if": {
+        "properties": { "route": { "const": "challenge-via-boss" } },
+        "required": ["route"]
+      },
+      "then": {
+        "required": ["subject", "challengeId"],
+        "properties": { "intent": { "const": "challenge" } }
+      }
+    },
+    {
+      "description": "A challenge intent may only travel the challenge route.",
+      "if": {
+        "properties": { "intent": { "const": "challenge" } },
+        "required": ["intent"]
+      },
+      "then": { "properties": { "route": { "const": "challenge-via-boss" } } }
     },
     {
       "description": "Dispatches and results are always about a specific work order.",
@@ -57,15 +112,22 @@
       "then": { "required": ["taskId"] }
     },
     {
-      "description": "Only the QA Adversary files bug reports; that is the whole point of the role.",
-      "if": {
-        "properties": { "intent": { "const": "bug-report" } },
-        "required": ["intent"]
-      },
+      "description": "A proposal carries its record, so the boss can triage it against evidence rather than prose.",
+      "if": { "properties": { "intent": { "const": "proposal" } }, "required": ["intent"] },
+      "then": { "required": ["proposalId"] }
+    },
+    {
+      "description": "A division report carries its record and travels upward.",
+      "if": { "properties": { "intent": { "const": "division-report" } }, "required": ["intent"] },
       "then": {
-        "properties": { "from": { "const": "qa-adversary" } },
-        "required": ["from"]
+        "required": ["reportId"],
+        "properties": { "route": { "enum": ["boss-to-ceo", "ceo-to-human"] } }
       }
+    },
+    {
+      "description": "Dispatch flows downward only. A specialist cannot hand work to its boss.",
+      "if": { "properties": { "intent": { "const": "dispatch" } }, "required": ["intent"] },
+      "then": { "properties": { "route": { "enum": ["boss-to-report", "ceo-to-boss"] } } }
     }
   ]
 }

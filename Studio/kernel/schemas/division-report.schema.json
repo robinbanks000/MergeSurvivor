@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/division-report.schema.json",
+  "title": "Division report",
+  "description": "A division head's daily account upward. Twelve of these are folded into one founder-facing digest, which is the only expensive model run of the day. The shape is fixed so the summary can be assembled mechanically rather than by re-reading twelve pieces of prose.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "division",
+    "boss",
+    "periodStart",
+    "periodEnd",
+    "completed",
+    "blocked",
+    "spend",
+    "needsFounderAttention"
+  ],
+  "properties": {
+    "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/reportId" },
+    "division": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/divisionId" },
+    "boss": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
+    "periodStart": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "periodEnd": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "completed": {
+      "description": "Work orders that passed their gate this period. Empty is a valid and useful answer.",
+      "type": "array",
+      "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+      "uniqueItems": true
+    },
+    "inFlight": {
+      "type": "array",
+      "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+      "uniqueItems": true
+    },
+    "blocked": {
+      "description": "Each blocker names what is stuck and on what. A division reporting no blockers for many periods while completing nothing is a signal in itself.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/blocker" }
+    },
+    "proposalsRaised": {
+      "type": "array",
+      "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/proposalId" },
+      "uniqueItems": true
+    },
+    "challengesRaised": {
+      "type": "array",
+      "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/challengeId" },
+      "uniqueItems": true
+    },
+    "spend": { "$ref": "#/$defs/spend" },
+    "needsFounderAttention": {
+      "description": "Items the boss believes only the founder can settle. Everything else is expected to be handled inside the division; a report where this is never empty means the decision boundaries are drawn wrong.",
+      "type": "array",
+      "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/escalationId" },
+      "uniqueItems": true
+    },
+    "notes": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+  },
+  "$defs": {
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["what", "blockedOn"],
+      "properties": {
+        "what": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+        "blockedOn": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+        "taskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+        "sinceDays": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "spend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["currency", "periodSpend", "budgetHardStop"],
+      "properties": {
+        "currency": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/currency" },
+        "periodSpend": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/amount" },
+        "budgetHardStop": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/amount" },
+        "cacheHitRate": {
+          "description": "Share of input tokens served from the shared prefix cache. The single biggest lever on the studio's bill, so it is reported rather than inferred.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "batchedShare": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

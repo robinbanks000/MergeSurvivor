@@ -1,18 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mergesurvivor.studio/kernel/agent.schema.json",
-  "title": "Agent registry",
-  "description": "The roster. One document listing every agent, its authority level, its write scope and the gates that verify it. This file is the anti-sprawl control point: an agent that is not here does not exist.",
+  "title": "Division agent roster",
+  "description": "One file per division. Every field below is required because the fields are the anti-filler mechanism: an agent whose measurable output duplicates another's, or whose reason for existing cannot be written down, cannot be added to the roster at all.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "updatedAt", "agents"],
+  "required": ["division", "version", "updatedAt", "agents"],
   "properties": {
+    "division": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/divisionId" },
     "version": { "type": "integer", "minimum": 1 },
     "updatedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
     "agents": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 5,
       "items": { "$ref": "#/$defs/agent" }
     }
   },
@@ -23,12 +23,25 @@
       "required": [
         "id",
         "displayName",
+        "division",
+        "reportsTo",
+        "tier",
+        "status",
         "purpose",
+        "existsBecause",
+        "measurableOutput",
+        "successMetric",
+        "tools",
+        "decidesAlone",
+        "mustEscalate",
+        "mayNot",
+        "dependsOn",
+        "challenges",
+        "model",
+        "batchEligible",
         "decisionLevel",
-        "runtime",
-        "writeScope",
-        "verifiedByGates",
         "retryBudget",
+        "budgetId",
         "mayDeclareOwnWorkDone",
         "mayEditProductionCode",
         "mayWriteTests"
@@ -36,17 +49,89 @@
       "properties": {
         "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
         "displayName": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
-        "purpose": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
-        "decisionLevel": {
-          "description": "The highest level this agent may decide at without escalating.",
-          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/decisionLevel"
+        "division": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/divisionId" },
+        "reportsTo": {
+          "description": "The agent this one answers to. Only the chief executive reports to 'human'.",
+          "anyOf": [
+            { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
+            { "const": "human" }
+          ]
         },
-        "runtime": {
+        "tier": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentTier" },
+        "status": {
+          "description": "A dormant agent is fully specified but cannot be dispatched and holds no budget. Dormancy is the normal state for roles whose preconditions the project has not reached.",
           "type": "string",
-          "enum": ["claude-code-subagent", "github-action", "both"]
+          "enum": ["active", "dormant", "retired"]
         },
-        "writeScope": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlobList" },
-        "readScope": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlobList" },
+        "activatesWhen": {
+          "description": "The condition under which a dormant agent starts working. Required while dormant, so nobody has to guess what the role is waiting for.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString"
+        },
+        "purpose": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+        "existsBecause": {
+          "description": "Why this role is not covered by an existing agent. Not decoration: agent-performance-auditor measures against this, and an agent whose justification no longer holds is proposed for retirement.",
+          "type": "string",
+          "minLength": 40
+        },
+        "measurableOutput": {
+          "description": "Concrete artifacts this agent produces. Two agents sharing an entry here are duplicates, which the cross-checks reject.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+          "uniqueItems": true
+        },
+        "successMetric": {
+          "description": "How to tell whether this agent is earning its budget, stated so it can be measured rather than argued about.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString"
+        },
+        "tools": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+          "uniqueItems": true
+        },
+        "writeScope": {
+          "description": "Optional narrowing. Absent means the agent inherits its division's scope; present, it must be a subset of it.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlobList"
+        },
+        "decidesAlone": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "mustEscalate": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "mayNot": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "dependsOn": {
+          "description": "Agents whose output this one consumes. Empty is allowed; a cycle is not.",
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
+          "uniqueItems": true
+        },
+        "challenges": {
+          "description": "Agents whose work this one has standing to dispute. This is what makes the org self-correcting rather than merely obedient.",
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
+          "uniqueItems": true
+        },
+        "model": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/modelTier" },
+        "modelJustification": {
+          "description": "Required above the haiku default. Cost discipline is not a preference here — it is the difference between the roster being affordable and not.",
+          "type": "string",
+          "minLength": 30
+        },
+        "batchEligible": {
+          "description": "True when the work is not interactive and can go through the Batch API at half price. Most audit, sweep and analysis roles are.",
+          "type": "boolean"
+        },
+        "decisionLevel": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/decisionLevel" },
         "verifiedByGates": {
           "type": "array",
           "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/gateId" },
@@ -54,8 +139,14 @@
         },
         "retryBudget": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/retryBudget" },
         "budgetId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/budgetId" },
+        "maxOpenProposals": {
+          "description": "Cap on unresolved proposals. Without it an idle agent generates work to justify itself, which costs real money.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
         "mayDeclareOwnWorkDone": {
-          "description": "Always false. Completion is assigned by a gate, never claimed by the author. Encoded as a const so no registry edit can turn it on.",
+          "description": "Always false, for every agent at every tier. Completion is assigned by a gate, never claimed by the author.",
           "const": false
         },
         "mayEditProductionCode": { "type": "boolean" },
@@ -63,27 +154,45 @@
       },
       "allOf": [
         {
-          "description": "Separation of powers: the agent that hunts bugs must not be able to fix them, or its green flag would mean nothing.",
-          "if": {
-            "properties": { "id": { "const": "qa-adversary" } },
-            "required": ["id"]
-          },
+          "description": "Only the chief executive answers to the founder directly.",
+          "if": { "properties": { "tier": { "const": "ceo" } }, "required": ["tier"] },
+          "then": {
+            "properties": { "reportsTo": { "const": "human" } },
+            "required": ["reportsTo"]
+          }
+        },
+        {
+          "description": "Everyone below the chief executive answers to an agent, not to the founder. Otherwise the founder becomes the routing layer for a hundred agents.",
+          "if": { "properties": { "tier": { "enum": ["boss", "specialist"] } }, "required": ["tier"] },
+          "then": {
+            "properties": { "reportsTo": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" } }
+          }
+        },
+        {
+          "description": "Opus is reserved for the four roles whose judgement quality sets the ceiling on everything downstream. At the studio's budget an Opus task costs roughly ten times a batched Haiku one, so this is a hard schema rule rather than guidance.",
+          "if": { "properties": { "model": { "const": "opus" } }, "required": ["model"] },
           "then": {
             "properties": {
-              "mayEditProductionCode": { "const": false },
-              "mayWriteTests": { "const": true }
+              "id": {
+                "enum": ["ceo-orchestrator", "design-director", "engineering-director", "qa-director"]
+              }
             }
           }
         },
         {
-          "description": "The orchestrator routes and gates; it does not implement, or it would be reviewing itself.",
-          "if": {
-            "properties": { "id": { "const": "orchestrator" } },
-            "required": ["id"]
-          },
-          "then": {
-            "properties": { "mayEditProductionCode": { "const": false } }
-          }
+          "description": "Anything above the haiku default must say why.",
+          "if": { "properties": { "model": { "enum": ["sonnet", "opus"] } }, "required": ["model"] },
+          "then": { "required": ["modelJustification"] }
+        },
+        {
+          "description": "A dormant agent must state what it is waiting for.",
+          "if": { "properties": { "status": { "const": "dormant" } }, "required": ["status"] },
+          "then": { "required": ["activatesWhen"] }
+        },
+        {
+          "description": "Specialists carry the work; a boss that also implements ends up reviewing itself.",
+          "if": { "properties": { "tier": { "enum": ["ceo", "boss"] } }, "required": ["tier"] },
+          "then": { "properties": { "mayEditProductionCode": { "const": false } } }
         }
       ]
     }

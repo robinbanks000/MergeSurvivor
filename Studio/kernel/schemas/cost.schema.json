@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mergesurvivor.studio/kernel/cost.schema.json",
   "title": "Cost control",
-  "description": "Budgets and spend for an autonomous studio that runs unattended overnight. A solo founder cannot watch the meter, so the kernel enforces a hard stop rather than trusting agents to be frugal.",
+  "description": "Budgets and spend for an autonomous studio that runs unattended. With a hundred agents and a ceiling measured in tens of currency units, one runaway loop burns the month — so ceilings are enforced by the dispatcher, not advertised to agents and hoped for.",
   "oneOf": [
     { "$ref": "#/$defs/budgetRegistry" },
     { "$ref": "#/$defs/spendRecord" }
@@ -11,11 +11,16 @@
     "budgetRegistry": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "version", "updatedAt", "budgets"],
+      "required": ["kind", "version", "updatedAt", "currency", "studioCeiling", "budgets"],
       "properties": {
         "kind": { "const": "budget-registry" },
         "version": { "type": "integer", "minimum": 1 },
         "updatedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+        "currency": {
+          "description": "Declared once for the whole registry. Every amount below is in this unit; nothing is ever an unlabelled number.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/currency"
+        },
+        "studioCeiling": { "$ref": "#/$defs/ceiling" },
         "budgets": {
           "type": "array",
           "minItems": 1,
@@ -24,47 +29,73 @@
       }
     },
 
+    "ceiling": {
+      "description": "The absolute limit for the whole studio. KernelCrossCheckTests enforces that division budgets sum to no more than hardStop.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "hardStop", "periodDays"],
+      "properties": {
+        "target": {
+          "description": "What the studio aims to spend. Crossing it is a signal, not a stop.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/amount"
+        },
+        "hardStop": {
+          "description": "Dispatch halts here. Not a warning — the dispatcher refuses.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/amount"
+        },
+        "periodDays": { "type": "integer", "minimum": 1, "maximum": 365 }
+      }
+    },
+
     "budget": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "scope", "periodDays", "softWarnUsd", "hardStopUsd", "onHardStop"],
+      "required": ["id", "scope", "periodDays", "softWarn", "hardStop", "onHardStop"],
       "properties": {
         "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/budgetId" },
-        "scope": { "type": "string", "enum": ["studio", "agent", "task"] },
+        "scope": { "type": "string", "enum": ["studio", "division", "agent", "task"] },
+        "division": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/divisionId" },
         "agent": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
         "periodDays": { "type": "integer", "minimum": 1, "maximum": 365 },
-        "softWarnUsd": {
-          "description": "Crossing this raises a notice in the daily digest but changes nothing.",
-          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/usd"
+        "softWarn": {
+          "description": "Crossing this raises a notice in the daily digest and changes nothing else.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/amount"
         },
-        "hardStopUsd": {
-          "description": "Crossing this halts dispatch. Must be >= softWarnUsd; JSON Schema cannot compare siblings, so KernelCrossCheckTests enforces it.",
-          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/usd"
+        "hardStop": {
+          "description": "Crossing this halts dispatch for the scope. Must be >= softWarn; JSON Schema cannot compare siblings, so the cross-checks enforce it.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/amount"
         },
         "onHardStop": {
-          "description": "pause keeps in-flight work and stops new dispatch; stop abandons in-flight work too. Neither may be 'continue' — a budget with no teeth is a comment.",
+          "description": "pause keeps in-flight work and stops new dispatch; stop abandons in-flight work too. There is deliberately no 'continue' — a budget with no teeth is a comment.",
           "type": "string",
           "enum": ["pause", "stop"]
         },
-        "maxConcurrentTasks": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "restrictToPriorityAtPercent": {
+          "description": "Above this share of the budget, only priority-1 work dispatches. The graduated step that keeps a division useful instead of flipping straight from open to closed.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "maxConcurrentTasks": { "type": "integer", "minimum": 1, "maximum": 20 },
         "note": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
       },
       "allOf": [
         {
-          "description": "An agent-scoped budget must say which agent it governs.",
-          "if": {
-            "properties": { "scope": { "const": "agent" } },
-            "required": ["scope"]
-          },
+          "description": "A division-scoped budget must name its division.",
+          "if": { "properties": { "scope": { "const": "division" } }, "required": ["scope"] },
+          "then": { "required": ["division"] }
+        },
+        {
+          "description": "An agent-scoped budget must name its agent.",
+          "if": { "properties": { "scope": { "const": "agent" } }, "required": ["scope"] },
           "then": { "required": ["agent"] }
         },
         {
-          "description": "A studio-wide budget governs everyone and must not name one agent.",
-          "if": {
-            "properties": { "scope": { "const": "studio" } },
-            "required": ["scope"]
-          },
-          "then": { "not": { "required": ["agent"] } }
+          "description": "A studio-wide budget governs everyone and must not name one division or agent.",
+          "if": { "properties": { "scope": { "const": "studio" } }, "required": ["scope"] },
+          "then": {
+            "not": { "anyOf": [{ "required": ["division"] }, { "required": ["agent"] }] }
+          }
         }
       ]
     },
@@ -72,17 +103,27 @@
     "spendRecord": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "at", "budgetId", "actor", "usd"],
+      "required": ["kind", "at", "budgetId", "actor", "currency", "amount"],
       "properties": {
         "kind": { "const": "spend-record" },
         "at": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
         "budgetId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/budgetId" },
         "actor": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId" },
         "taskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
-        "usd": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/usd" },
-        "model": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+        "currency": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/currency" },
+        "amount": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/amount" },
+        "model": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/modelTier" },
         "inputTokens": { "type": "integer", "minimum": 0 },
+        "cachedInputTokens": {
+          "description": "Tokens served from the shared prefix cache at roughly a tenth of the input rate. Tracked separately because cache hit rate is the single biggest lever on the studio's bill.",
+          "type": "integer",
+          "minimum": 0
+        },
         "outputTokens": { "type": "integer", "minimum": 0 },
+        "batched": {
+          "description": "True when the work went through the Batch API at half price.",
+          "type": "boolean"
+        },
         "runtime": { "type": "string", "enum": ["claude-code-subagent", "github-action"] }
       }
     }

@@ -1,0 +1,27 @@
+{
+  "id": "RPT-20260827-engineering",
+  "division": "engineering",
+  "boss": "engineering-director",
+  "periodStart": "2026-08-26T00:00:00Z",
+  "periodEnd": "2026-08-27T00:00:00Z",
+  "completed": ["WO-0141"],
+  "inFlight": ["WO-0142"],
+  "blocked": [
+    {
+      "what": "Combat model implementation",
+      "blockedOn": "No combat design specification exists, because product-design is dormant awaiting PILLARS.md",
+      "taskId": "WO-0004",
+      "sinceDays": 3
+    }
+  ],
+  "proposalsRaised": ["PRO-0001"],
+  "challengesRaised": [],
+  "spend": {
+    "currency": "DKK",
+    "periodSpend": 2.8,
+    "budgetHardStop": 90,
+    "cacheHitRate": 0.72,
+    "batchedShare": 0.4
+  },
+  "needsFounderAttention": []
+}

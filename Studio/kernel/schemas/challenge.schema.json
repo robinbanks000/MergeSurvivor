@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/challenge.schema.json",
+  "title": "Challenge",
+  "description": "One agent disputing another's work, adjudicated by their shared boss. This is the mechanism that keeps the organisation self-correcting instead of merely obedient: a hierarchy where nobody may contradict anybody converges on whatever the first agent happened to decide. Challenges are never peer-to-peer conversations — they are filed, evidenced and ruled on.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "raisedBy",
+    "against",
+    "adjudicator",
+    "raisedAt",
+    "claim",
+    "evidence",
+    "status"
+  ],
+  "properties": {
+    "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/challengeId" },
+    "raisedBy": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
+    "against": {
+      "description": "The agent whose output is disputed. Cross-checks verify the challenger has standing, meaning this id appears in its 'challenges' list.",
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId"
+    },
+    "adjudicator": {
+      "description": "The boss who rules. Cross-checks verify this is genuinely above both parties, so a dispute cannot be settled by a peer.",
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId"
+    },
+    "raisedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "taskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+    "claim": {
+      "description": "What is being disputed and why, specifically enough to be settled.",
+      "type": "string",
+      "minLength": 30
+    },
+    "evidence": {
+      "description": "A challenge without evidence is an argument from authority, which is exactly what this mechanism exists to prevent.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+    },
+    "response": {
+      "description": "The challenged agent's answer, if it gave one before the ruling.",
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["open", "upheld", "dismissed", "escalated", "withdrawn"]
+    },
+    "ruling": {
+      "description": "The adjudicator's decision and reasoning. Required once the challenge is settled either way, because a ruling with no reasoning teaches neither party anything.",
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString"
+    },
+    "ruledAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "resultingTaskId": {
+      "description": "The corrective work order, when a challenge is upheld.",
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId"
+    },
+    "escalationId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/escalationId" },
+    "lessonRecorded": {
+      "description": "Whether the outcome produced a lesson or a test. An upheld challenge that changes nothing durable will recur.",
+      "type": "boolean"
+    }
+  },
+  "allOf": [
+    {
+      "description": "A settled challenge must carry the reasoning behind the ruling.",
+      "if": { "properties": { "status": { "enum": ["upheld", "dismissed"] } }, "required": ["status"] },
+      "then": { "required": ["ruling", "ruledAt"] }
+    },
+    {
+      "description": "Upholding a challenge means something was wrong, so corrective work must follow.",
+      "if": { "properties": { "status": { "const": "upheld" } }, "required": ["status"] },
+      "then": { "required": ["resultingTaskId"] }
+    },
+    {
+      "description": "A boss who cannot settle it hands it upward with a record, rather than letting it lapse.",
+      "if": { "properties": { "status": { "const": "escalated" } }, "required": ["status"] },
+      "then": { "required": ["escalationId"] }
+    }
+  ]
+}

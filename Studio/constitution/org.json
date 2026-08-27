@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-27T14:00:00Z",
+  "chiefExecutive": "ceo-orchestrator",
+  "divisions": [
+    {
+      "id": "executive",
+      "name": "Executive",
+      "mandate": "Coordinate the divisions, arbitrate conflicts between them, own architecture decisions, and present one daily digest to the founder. Does no domain work of its own.",
+      "boss": "ceo-orchestrator",
+      "writeScope": ["Studio/state/**", "Studio/decisions/**", "Studio/orders/**", "Studio/evidence/**"],
+      "budgetId": "BUD-EXEC"
+    },
+    {
+      "id": "studio-ops",
+      "name": "Studio Operations",
+      "mandate": "Run the agent system itself: author work orders, batch escalations, compact memory, promote lessons into tests, track spend and keep the roster honest.",
+      "boss": "chief-of-staff",
+      "writeScope": ["Studio/state/**", "Studio/orders/**", "Studio/evidence/**", "Studio/lessons/**"],
+      "budgetId": "BUD-OPS"
+    },
+    {
+      "id": "product-design",
+      "name": "Product & Design",
+      "mandate": "Turn the founder's pillars into feature specs, acceptance criteria and content data. Owns what the game should be, never how it is coded.",
+      "boss": "design-director",
+      "writeScope": ["GameDesign/**", "Assets/Data/**", "Studio/evidence/**"],
+      "budgetId": "BUD-DESIGN",
+      "activatesWhen": "Studio/constitution/PILLARS.md exists"
+    },
+    {
+      "id": "engineering",
+      "name": "Engineering",
+      "mandate": "Implement the game: the deterministic C# core and the thin Unity shell over it. The only division permitted to change production code.",
+      "boss": "engineering-director",
+      "writeScope": ["Assets/Core/**", "Assets/Unity/**", "Assets/Tests/**", "Studio/evidence/**"],
+      "budgetId": "BUD-ENG"
+    },
+    {
+      "id": "quality",
+      "name": "Quality & Verification",
+      "mandate": "Prove the game works and find where it does not. Writes tests and files defects; deliberately cannot fix production code, so its green flag means something.",
+      "boss": "qa-director",
+      "writeScope": ["Assets/Tests/**", "Studio/evidence/**", "Studio/lessons/**"],
+      "budgetId": "BUD-QA"
+    },
+    {
+      "id": "balance-sim",
+      "name": "Balance & Simulation",
+      "mandate": "Tune economy, combat and progression against headless simulation over the deterministic core, and prove no dominant strategy or softlock exists.",
+      "boss": "balance-director",
+      "writeScope": ["Assets/Data/Tuning/**", "Studio/sim/**", "Studio/evidence/**"],
+      "budgetId": "BUD-BAL"
+    },
+    {
+      "id": "content-art",
+      "name": "Content & Art",
+      "mandate": "Own the visual bar: style guide, asset specifications, import settings, memory budgets and procedural placeholders. Specifies and reviews art; does not claim to create finished art.",
+      "boss": "art-director",
+      "writeScope": ["Assets/Art/**", "Assets/Data/**", "GameDesign/art/**", "Studio/evidence/**"],
+      "budgetId": "BUD-ART",
+      "activatesWhen": "Studio/constitution/PILLARS.md exists and a playable scene exists"
+    },
+    {
+      "id": "audio",
+      "name": "Audio",
+      "mandate": "Specify sound and music, and verify that what ships is wired correctly and within budget. Cannot author audio itself.",
+      "boss": "audio-director",
+      "writeScope": ["Assets/Audio/**", "GameDesign/audio/**", "Studio/evidence/**"],
+      "budgetId": "BUD-AUDIO",
+      "activatesWhen": "A playable scene exists with at least one gameplay event worth scoring"
+    },
+    {
+      "id": "data-analytics",
+      "name": "Data & Analytics",
+      "mandate": "Define what the game measures, verify the telemetry is trustworthy, and turn it into answers about funnels, retention and monetisation.",
+      "boss": "data-director",
+      "writeScope": ["Assets/Analytics/schema/**", "Studio/evidence/**", "Studio/state/analytics/**"],
+      "budgetId": "BUD-DATA",
+      "activatesWhen": "A build has shipped to at least one real player"
+    },
+    {
+      "id": "live-ops",
+      "name": "Live Operations",
+      "mandate": "Run the shipped game: release trains, remote config, events, incidents and the player-facing store presence.",
+      "boss": "liveops-director",
+      "writeScope": ["Studio/state/liveops/**", "Assets/Data/RemoteConfig/**", "Studio/evidence/**"],
+      "budgetId": "BUD-LIVEOPS",
+      "activatesWhen": "A build has shipped to at least one real player"
+    },
+    {
+      "id": "growth",
+      "name": "Growth & Marketing",
+      "mandate": "Understand the market the game competes in and make it findable. Produces briefs and analysis; never spends money or contacts anyone directly.",
+      "boss": "growth-director",
+      "writeScope": ["GameDesign/market/**", "Studio/state/growth/**", "Studio/evidence/**"],
+      "budgetId": "BUD-GROWTH",
+      "activatesWhen": "A store listing draft exists"
+    },
+    {
+      "id": "compliance",
+      "name": "Compliance & Legal",
+      "mandate": "Keep the game shippable: privacy, store policy, third-party licences, age rating and the financial model. Every output is advisory and requires founder sign-off.",
+      "boss": "compliance-director",
+      "writeScope": ["Studio/state/compliance/**", "GameDesign/legal/**", "Studio/evidence/**"],
+      "budgetId": "BUD-COMPLY",
+      "activatesWhen": "The project has a third-party dependency or a store listing draft"
+    },
+    {
+      "id": "infrastructure",
+      "name": "Platform & Infrastructure",
+      "mandate": "Keep the machinery the studio runs on healthy: CI, releases, secrets hygiene, dependency supply chain and observability. Proposes changes to the gates but may never edit them.",
+      "boss": "infra-director",
+      "writeScope": ["Studio/state/infra/**", "Studio/evidence/**", "Packages/**"],
+      "budgetId": "BUD-INFRA"
+    }
+  ]
+}

@@ -1,64 +1,162 @@
 {
   "kind": "budget-registry",
-  "version": 1,
-  "updatedAt": "2026-08-27T00:00:00Z",
+  "version": 3,
+  "updatedAt": "2026-08-27T14:00:00Z",
+  "currency": "DKK",
+  "studioCeiling": {
+    "target": 300,
+    "hardStop": 500,
+    "periodDays": 30
+  },
   "budgets": [
     {
-      "id": "BUD-0001",
+      "id": "BUD-STUDIO",
       "scope": "studio",
       "periodDays": 30,
-      "softWarnUsd": 150,
-      "hardStopUsd": 300,
+      "softWarn": 300,
+      "hardStop": 500,
       "onHardStop": "pause",
+      "restrictToPriorityAtPercent": 85,
+      "maxConcurrentTasks": 6,
+      "note": "The whole studio. At this ceiling one runaway loop burns the month, so the dispatcher enforces it rather than warning about it. Division budgets below sum to 440, leaving 60 of headroom for the executive digest and unforeseen work."
+    },
+    {
+      "id": "BUD-EXEC",
+      "scope": "division",
+      "division": "executive",
+      "periodDays": 30,
+      "softWarn": 25,
+      "hardStop": 40,
+      "onHardStop": "pause",
+      "restrictToPriorityAtPercent": 85,
+      "note": "One Opus run per day for the digest is the single most expensive recurring cost in the studio. Everything else the CEO does must be cheap."
+    },
+    {
+      "id": "BUD-OPS",
+      "scope": "division",
+      "division": "studio-ops",
+      "periodDays": 30,
+      "softWarn": 40,
+      "hardStop": 60,
+      "onHardStop": "pause",
+      "restrictToPriorityAtPercent": 85,
+      "note": "Runs the system itself. High spend here means the machinery is costing more than the work it coordinates."
+    },
+    {
+      "id": "BUD-DESIGN",
+      "scope": "division",
+      "division": "product-design",
+      "periodDays": 30,
+      "softWarn": 35,
+      "hardStop": 50,
+      "onHardStop": "pause",
+      "restrictToPriorityAtPercent": 85
+    },
+    {
+      "id": "BUD-ENG",
+      "scope": "division",
+      "division": "engineering",
+      "periodDays": 30,
+      "softWarn": 65,
+      "hardStop": 90,
+      "onHardStop": "pause",
+      "restrictToPriorityAtPercent": 85,
       "maxConcurrentTasks": 3,
-      "note": "The whole studio. A solo founder cannot watch the meter overnight, so the ceiling is enforced rather than advisory. Pause keeps in-flight work recoverable."
+      "note": "The largest allocation because implementation is where the game actually gets built."
     },
     {
-      "id": "BUD-0002",
-      "scope": "agent",
-      "agent": "orchestrator",
+      "id": "BUD-QA",
+      "scope": "division",
+      "division": "quality",
       "periodDays": 30,
-      "softWarnUsd": 20,
-      "hardStopUsd": 40,
+      "softWarn": 50,
+      "hardStop": 70,
       "onHardStop": "pause",
-      "note": "Routing and gating should be cheap. A high orchestrator spend means it is doing work that belongs to a specialist."
+      "restrictToPriorityAtPercent": 85,
+      "maxConcurrentTasks": 3,
+      "note": "Second largest on purpose. Verification that is starved of budget becomes verification in name only."
     },
     {
-      "id": "BUD-0003",
-      "scope": "agent",
-      "agent": "design-architect",
+      "id": "BUD-BAL",
+      "scope": "division",
+      "division": "balance-sim",
       "periodDays": 30,
-      "softWarnUsd": 30,
-      "hardStopUsd": 60,
-      "onHardStop": "pause"
-    },
-    {
-      "id": "BUD-0004",
-      "scope": "agent",
-      "agent": "gameplay-engineer",
-      "periodDays": 30,
-      "softWarnUsd": 50,
-      "hardStopUsd": 100,
-      "onHardStop": "pause"
-    },
-    {
-      "id": "BUD-0005",
-      "scope": "agent",
-      "agent": "qa-adversary",
-      "periodDays": 30,
-      "softWarnUsd": 30,
-      "hardStopUsd": 60,
-      "onHardStop": "pause"
-    },
-    {
-      "id": "BUD-0006",
-      "scope": "agent",
-      "agent": "balance-simulator",
-      "periodDays": 30,
-      "softWarnUsd": 40,
-      "hardStopUsd": 80,
+      "softWarn": 28,
+      "hardStop": 40,
       "onHardStop": "pause",
-      "note": "Runs unattended overnight, which is exactly why it needs a hard ceiling."
+      "restrictToPriorityAtPercent": 85,
+      "note": "Simulation compute is nearly free; the cost here is the analysis of what the numbers mean."
+    },
+    {
+      "id": "BUD-ART",
+      "scope": "division",
+      "division": "content-art",
+      "periodDays": 30,
+      "softWarn": 14,
+      "hardStop": 20,
+      "onHardStop": "pause",
+      "restrictToPriorityAtPercent": 85
+    },
+    {
+      "id": "BUD-AUDIO",
+      "scope": "division",
+      "division": "audio",
+      "periodDays": 30,
+      "softWarn": 3,
+      "hardStop": 5,
+      "onHardStop": "pause",
+      "restrictToPriorityAtPercent": 85,
+      "note": "Dormant until there is a scene worth scoring. The allocation exists so activation does not require a budget change."
+    },
+    {
+      "id": "BUD-DATA",
+      "scope": "division",
+      "division": "data-analytics",
+      "periodDays": 30,
+      "softWarn": 10,
+      "hardStop": 15,
+      "onHardStop": "pause",
+      "restrictToPriorityAtPercent": 85
+    },
+    {
+      "id": "BUD-LIVEOPS",
+      "scope": "division",
+      "division": "live-ops",
+      "periodDays": 30,
+      "softWarn": 7,
+      "hardStop": 10,
+      "onHardStop": "pause",
+      "restrictToPriorityAtPercent": 85
+    },
+    {
+      "id": "BUD-GROWTH",
+      "scope": "division",
+      "division": "growth",
+      "periodDays": 30,
+      "softWarn": 3,
+      "hardStop": 5,
+      "onHardStop": "pause",
+      "restrictToPriorityAtPercent": 85
+    },
+    {
+      "id": "BUD-COMPLY",
+      "scope": "division",
+      "division": "compliance",
+      "periodDays": 30,
+      "softWarn": 3,
+      "hardStop": 5,
+      "onHardStop": "pause",
+      "restrictToPriorityAtPercent": 85
+    },
+    {
+      "id": "BUD-INFRA",
+      "scope": "division",
+      "division": "infrastructure",
+      "periodDays": 30,
+      "softWarn": 22,
+      "hardStop": 30,
+      "onHardStop": "pause",
+      "restrictToPriorityAtPercent": 85
     }
   ]
 }
