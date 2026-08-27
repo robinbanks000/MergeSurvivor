@@ -1,6 +1,6 @@
 {
-  "version": 3,
-  "updatedAt": "2026-08-27T14:30:00Z",
+  "version": 4,
+  "updatedAt": "2026-08-27T16:00:00Z",
   "phase": {
     "current": 3,
     "name": "Hundred-agent organisation",
@@ -23,7 +23,7 @@
       "id": "WO-0006",
       "title": "Generate agent definitions for the active roster and run the six-agent canary",
       "level": "L1",
-      "status": "in_progress",
+      "status": "gate_pending",
       "priority": 1,
       "assignedTo": "ceo-orchestrator"
     },
@@ -31,8 +31,9 @@
       "id": "WO-0007",
       "title": "Give RunState a reproducible run identity: seed and tick count",
       "level": "L3",
-      "status": "queued",
-      "priority": 1
+      "status": "gate_pending",
+      "priority": 1,
+      "assignedTo": "core-simulation-engineer"
     },
     {
       "id": "WO-0004",
@@ -43,6 +44,20 @@
       "blockedBy": [
         "WO-0002"
       ]
+    },
+    {
+      "id": "WO-0008",
+      "title": "Reject non-finite dt in RunState.Tick, per PRO-0002",
+      "level": "L3",
+      "status": "queued",
+      "priority": 2
+    },
+    {
+      "id": "WO-0009",
+      "title": "Make RegisterKill atomic on its failure path, per PRO-0003",
+      "level": "L3",
+      "status": "queued",
+      "priority": 3
     }
   ],
   "agentStatus": [

@@ -1,0 +1,19 @@
+{
+  "id": "EVD-0004",
+  "tier": "T1",
+  "producedBy": "ceo-orchestrator",
+  "at": "2026-08-27T19:17:42Z",
+  "verdict": "pass",
+  "summary": "Canary through six agents: WO-0007 implemented and independently verified. No criterion violated; two pre-existing Core defects found by the quality director and filed as PRO-0002 and PRO-0003. kernelTests is 125 at the commit carrying this file and 124 at ae3169b -- this evidence record is itself a case in the evidence cross-check, so recording the pre-commit number would have made the file disagree with the suite that reads it.",
+  "commit": "ae3169b",
+  "taskId": "WO-0007",
+  "metrics": {
+    "agentSteps": 6,
+    "coreTests": 97,
+    "kernelTests": 125,
+    "boundaryViolations": 0,
+    "defectsFound": 2,
+    "toolingDefectsFound": 4,
+    "subagentTokens": 200000
+  }
+}
