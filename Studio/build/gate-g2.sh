@@ -17,6 +17,17 @@ echo "=== T0: Core purity ==="
 ./Studio/build/check-core-purity.sh
 
 echo
+echo "=== T0: forbidden remedies ==="
+# AGENT_AUTHORED is exported by CI for agent-run jobs; unset here means the
+# founder is running it, for whom gate machinery is editable under ADR-0003.
+./Studio/build/check-forbidden-remedies.sh
+
+echo
+echo "=== T0: write scope ==="
+# Reports SKIP until a work order supplies --agent. Becomes blocking in Phase 3.
+./Studio/build/check-write-scope.sh ${WORK_ORDER_AGENT:+--agent "$WORK_ORDER_AGENT"}
+
+echo
 echo "=== T0: build (warnings are errors) ==="
 dotnet build Studio/build/MergeSurvivor.sln --nologo
 

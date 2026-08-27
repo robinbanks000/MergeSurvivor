@@ -1,0 +1,9 @@
+{
+  "id": "EVT-00000002",
+  "seq": 2,
+  "at": "2026-08-27T12:00:00Z",
+  "type": "escalation.resolved",
+  "actor": "human",
+  "subject": { "escalationId": "ESC-0001", "decisionId": "ADR-0002" },
+  "summary": "ESC-0001 answered explicitly rather than by timeout; the 24-hour default was never needed."
+}

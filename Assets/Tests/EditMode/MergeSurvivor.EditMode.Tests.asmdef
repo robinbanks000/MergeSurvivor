@@ -1,11 +1,15 @@
 {
-    "name": "MergeSurvivor.Core.Tests",
-    "rootNamespace": "MergeSurvivor.Core.Tests",
+    "name": "MergeSurvivor.EditMode.Tests",
+    "rootNamespace": "MergeSurvivor.EditMode.Tests",
     "references": [
         "MergeSurvivor.Core",
-        "UnityEngine.TestRunner"
+        "MergeSurvivor.Unity",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": true,

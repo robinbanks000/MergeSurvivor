@@ -1,11 +1,14 @@
 {
-  "version": 1,
-  "updatedAt": "2026-08-27T00:00:00Z",
+  "version": 2,
+  "updatedAt": "2026-08-27T13:20:00Z",
   "phase": {
-    "current": 1,
-    "name": "Kernel contracts",
+    "current": 2,
+    "name": "CI verification gates and automated QA foundation",
     "blockedOn": [
-      "Unity CI secrets (UNITY_LICENSE, UNITY_EMAIL, UNITY_PASSWORD) must be added by the founder before Phase 2 gates G3 and G4 can run"
+      "UNITY_LICENSE/UNITY_EMAIL/UNITY_PASSWORD secrets absent, so G3 skips and the Unity layer stays unverified",
+      "Branch protection not enabled, so CODEOWNERS is documentation and G2 can be bypassed by merging around it",
+      "PILLARS.md and NON_GOALS.md do not exist; G1 cannot run and Design Architect is blocked in Phase 3",
+      "Core has no combat model, so G4 is limited to structural invariants"
     ]
   },
   "backlog": [
@@ -13,36 +16,73 @@
       "id": "WO-0001",
       "title": "Wire kernel contract validation into the G2 gate in CI",
       "level": "L1",
-      "status": "queued",
+      "status": "completed",
       "priority": 1
     },
     {
       "id": "WO-0002",
       "title": "Author PILLARS.md and NON_GOALS.md",
       "level": "L0",
-      "status": "queued",
+      "status": "blocked",
       "priority": 1
     },
     {
       "id": "WO-0003",
       "title": "Build the headless simulation harness the balance gate depends on",
       "level": "L1",
+      "status": "completed",
+      "priority": 2
+    },
+    {
+      "id": "WO-0004",
+      "title": "Add a combat model to Core so T3 can measure run length and win rate",
+      "level": "L2",
       "status": "queued",
       "priority": 2,
-      "blockedBy": ["WO-0002"]
+      "blockedBy": [
+        "WO-0002"
+      ]
+    },
+    {
+      "id": "WO-0005",
+      "title": "Create the Gameplay Engineer and QA Adversary agents and run the end-to-end canary",
+      "level": "L1",
+      "status": "queued",
+      "priority": 1,
+      "blockedBy": [
+        "WO-0002"
+      ]
     }
   ],
   "agentStatus": [
-    { "agent": "orchestrator", "state": "working", "currentTaskId": "WO-0001" },
-    { "agent": "design-architect", "state": "not_yet_created" },
-    { "agent": "gameplay-engineer", "state": "not_yet_created" },
-    { "agent": "qa-adversary", "state": "not_yet_created" },
-    { "agent": "balance-simulator", "state": "not_yet_created" }
+    {
+      "agent": "orchestrator",
+      "state": "working",
+      "currentTaskId": "WO-0001"
+    },
+    {
+      "agent": "design-architect",
+      "state": "not_yet_created"
+    },
+    {
+      "agent": "gameplay-engineer",
+      "state": "not_yet_created"
+    },
+    {
+      "agent": "qa-adversary",
+      "state": "not_yet_created"
+    },
+    {
+      "agent": "balance-simulator",
+      "state": "not_yet_created"
+    }
   ],
   "openEscalations": [],
   "humanQueue": [
-    "Add Unity CI secrets for GameCI",
+    "Add Unity CI secrets for GameCI so G3 can run",
+    "Enable branch protection on main with required status check 'G2 Code Gate' and Code Owner review",
     "Confirm the Unity editor version pinned in ProjectSettings/ProjectVersion.txt",
-    "Author the game pillars, which no agent may write"
+    "Open the project in Unity once and commit the generated ProjectSettings assets",
+    "Author the game pillars and non-goals, which no agent may write"
   ]
 }

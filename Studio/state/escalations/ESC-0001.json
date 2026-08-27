@@ -5,10 +5,14 @@
   "trigger": "conflicts-with-higher-layer",
   "question": "The approved architecture showed kernel artifacts as YAML; the implementation uses JSON so the contracts can be validated by JSON Schema in CI. Keep JSON?",
   "recommendation": "Keep JSON. It is the only option that makes the contracts machine-enforced rather than advisory, and agents produce it more reliably than indented YAML.",
-  "evidence": ["EVD-0001"],
+  "evidence": [
+    "EVD-0001"
+  ],
   "reversible": true,
   "defaultAction": "Keep JSON as specified in ADR-0002 and mark that decision accepted.",
   "deadline": "2026-08-28T09:00:00Z",
-  "status": "open",
-  "decisionId": "ADR-0002"
+  "status": "resolved",
+  "decisionId": "ADR-0002",
+  "resolvedBy": "human",
+  "resolution": "Approved. Kernel contracts stay JSON validated by JSON Schema; ADR-0002 accepted."
 }

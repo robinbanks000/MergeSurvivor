@@ -1,0 +1,79 @@
+name: G4 Balance Gate
+
+# Headless simulation over Core. Needs no Unity licence, because Core is
+# engine-free and deterministic — the same seed produces the same numbers here as
+# on the founder's machine, which is what makes a CI result worth comparing.
+#
+# Scope note: this gate currently checks structural invariants only — merge
+# premium, monotonic DPS, finite values, frame-rate independence, seed
+# determinism. Run length, win rate and softlock detection need a combat model
+# that Core does not have yet, and inventing thresholds for them would produce
+# numbers that look like decisions nobody made.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  schedule:
+    # 03:00 UTC nightly. The sim is the one thing that produces real value while
+    # the founder sleeps, so it runs whether or not anyone pushed.
+    - cron: '0 3 * * *'
+
+concurrency:
+  group: g4-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  balance:
+    name: T3 structural invariants
+    runs-on: ubuntu-latest
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      DOTNET_NOLOGO: 1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Studio/**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      # A nightly sweep is wider than a per-push one: more seeds, more chance of
+      # catching an edge case nobody wrote a test for.
+      - name: Run simulation
+        id: sim
+        run: |
+          RUNS=${{ github.event_name == 'schedule' && '10000' || '1000' }}
+          dotnet run --project Studio/sim/MergeSurvivor.Sim/MergeSurvivor.Sim.csproj \
+            -c Release -- --seed 12345 --runs "$RUNS" \
+            --out Studio/evidence/sims/metrics.json
+
+      - name: Record evidence
+        if: always()
+        run: |
+          VERDICT=${{ job.status == 'success' && 'pass' || 'fail' }}
+          METRICS=$(python3 -c "import json;print(json.dumps(json.load(open('Studio/evidence/sims/metrics.json'))['metrics']))" 2>/dev/null || echo '{}')
+          ./Studio/build/emit-evidence.sh \
+            --tier T3 \
+            --verdict "$VERDICT" \
+            --by balance-simulator \
+            --seed 12345 \
+            --dir sims \
+            --metrics "$METRICS" \
+            --summary "G4 structural invariants on ${{ github.ref_name }} (run ${{ github.run_number }})"
+
+      - name: Upload metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g4-metrics-${{ github.run_number }}
+          path: Studio/evidence/sims/
+          if-no-files-found: warn

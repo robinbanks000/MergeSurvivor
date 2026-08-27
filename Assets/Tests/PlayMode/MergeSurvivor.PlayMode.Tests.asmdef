@@ -1,8 +1,9 @@
 {
-    "name": "MergeSurvivor.Core.Tests",
-    "rootNamespace": "MergeSurvivor.Core.Tests",
+    "name": "MergeSurvivor.PlayMode.Tests",
+    "rootNamespace": "MergeSurvivor.PlayMode.Tests",
     "references": [
         "MergeSurvivor.Core",
+        "MergeSurvivor.Unity",
         "UnityEngine.TestRunner"
     ],
     "includePlatforms": [],

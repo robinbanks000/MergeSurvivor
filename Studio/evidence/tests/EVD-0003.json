@@ -1,0 +1,14 @@
+{
+  "id": "EVD-0003",
+  "tier": "T1",
+  "producedBy": "orchestrator",
+  "at": "2026-08-27T13:14:00Z",
+  "verdict": "pass",
+  "summary": "Phase 2 G2 gate: Core purity, forbidden-remedy scan, write-scope check, warnings-as-errors build, 45 Core tests and 74 kernel contract tests.",
+  "commit": "fccdbcb",
+  "metrics": {
+    "coreTests": 45,
+    "kernelTests": 74,
+    "testsFailed": 0
+  }
+}

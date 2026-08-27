@@ -1,0 +1,90 @@
+name: G3 Integration Gate
+
+# Unity EditMode and PlayMode tests via GameCI.
+#
+# This gate skips rather than fails when Unity credentials are absent. A gate that
+# is permanently red gets ignored, and an ignored gate is worse than no gate — the
+# repository would look broken for reasons nobody can act on. The preflight job
+# says plainly which state we are in.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: g3-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    name: Check Unity credentials
+    runs-on: ubuntu-latest
+    outputs:
+      licensed: ${{ steps.check.outputs.licensed }}
+    steps:
+      - id: check
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        run: |
+          if [ -n "$UNITY_LICENSE" ]; then
+            echo "licensed=true" >> "$GITHUB_OUTPUT"
+            echo "### G3: Unity credentials present, running tests" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "licensed=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### G3 skipped — Unity credentials not configured"
+              echo ""
+              echo "The Unity layer is unverified until this is set up. Core logic is"
+              echo "still fully covered by G2, which needs no licence."
+              echo ""
+              echo "To enable, add these repository secrets:"
+              echo "- \`UNITY_LICENSE\` (contents of the .ulf activation file)"
+              echo "- \`UNITY_EMAIL\`"
+              echo "- \`UNITY_PASSWORD\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  tests:
+    name: Unity ${{ matrix.testMode }}
+    needs: preflight
+    if: needs.preflight.outputs.licensed == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        testMode: [editmode, playmode]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # Library/ is expensive to rebuild and is gitignored, so it is cached per
+      # test mode. The Unity version itself is read from ProjectVersion.txt by the
+      # action, which keeps CI and the local editor on one source of truth.
+      - uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-${{ matrix.testMode }}-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-${{ matrix.testMode }}-
+            Library-
+
+      - uses: game-ci/unity-test-runner@v4
+        id: run
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          testMode: ${{ matrix.testMode }}
+          artifactsPath: ${{ matrix.testMode }}-results
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          checkName: G3 ${{ matrix.testMode }} results
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g3-${{ matrix.testMode }}-results
+          path: ${{ steps.run.outputs.artifactsPath }}

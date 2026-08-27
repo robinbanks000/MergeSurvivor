@@ -148,6 +148,44 @@ namespace MergeSurvivor.Kernel.Tests
             }
         }
 
+        /// <summary>
+        /// Repo-relative paths of the files git tracks under the given directories.
+        /// Used instead of a filesystem walk so ignored build output never masquerades
+        /// as kernel state.
+        /// </summary>
+        public static IEnumerable<string> TrackedFiles(params string[] directories)
+        {
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "git",
+                WorkingDirectory = RepoRoot,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+            };
+
+            startInfo.ArgumentList.Add("ls-files");
+            startInfo.ArgumentList.Add("--");
+            foreach (string dir in directories)
+            {
+                startInfo.ArgumentList.Add(dir);
+            }
+
+            using var process = System.Diagnostics.Process.Start(startInfo);
+            string output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+
+            if (process.ExitCode != 0)
+            {
+                throw new InvalidOperationException(
+                    "git ls-files failed; the manifest coverage check cannot run without it.");
+            }
+
+            return output
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0);
+        }
+
         public static string Describe(EvaluationResults results)
         {
             IEnumerable<string> lines = results.Details

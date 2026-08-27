@@ -1,0 +1,9 @@
+{
+  "id": "EVT-00000001",
+  "seq": 1,
+  "at": "2026-08-27T12:00:00Z",
+  "type": "decision.recorded",
+  "actor": "human",
+  "subject": { "decisionId": "ADR-0002" },
+  "summary": "ADR-0002 ratified: kernel contracts are JSON validated by JSON Schema, not YAML."
+}

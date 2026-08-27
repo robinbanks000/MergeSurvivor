@@ -131,22 +131,14 @@ namespace MergeSurvivor.Kernel.Tests
                 }
             }
 
-            string[] searched = { "constitution", "state", "decisions", "evidence", "orders" };
-            var found = new List<string>();
-
-            foreach (string sub in searched)
-            {
-                string dir = Path.Combine(Kernel.RepoRoot, "Studio", sub);
-                if (!Directory.Exists(dir))
-                {
-                    continue;
-                }
-
-                found.AddRange(Directory
-                    .GetFiles(dir, "*.json", SearchOption.AllDirectories)
-                    .Select(f => Path.GetRelativePath(Kernel.RepoRoot, f)
-                        .Replace(Path.DirectorySeparatorChar, '/')));
-            }
+            // Only tracked files count. Scanning the filesystem would also pick up
+            // gitignored scratch output — the simulation's metrics.json, for one —
+            // and demand a manifest entry for something that is not kernel state at
+            // all. If git does not track it, it is not part of the studio's memory.
+            IEnumerable<string> found = Kernel.TrackedFiles(
+                "Studio/constitution", "Studio/state", "Studio/decisions",
+                "Studio/evidence", "Studio/orders")
+                .Where(f => f.EndsWith(".json", System.StringComparison.Ordinal));
 
             IEnumerable<string> uncovered = found.Where(f => !covered.Contains(f)).OrderBy(f => f);
 

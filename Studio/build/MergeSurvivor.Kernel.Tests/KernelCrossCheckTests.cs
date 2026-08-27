@@ -79,12 +79,17 @@ namespace MergeSurvivor.Kernel.Tests
         }
 
         [Test]
-        public void CiWorkflowsAreHumanExclusive()
+        public void TheGateMachineryIsHumanExclusive()
         {
-            // The most dangerous permission in the system: an agent that can edit CI can
-            // switch off the gates that judge it.
-            Assert.That(Strings(Permissions["humanExclusivePaths"]),
-                Contains.Item(".github/workflows/**"));
+            // The most dangerous permission in the system: an agent that can edit the
+            // gates can switch off what judges it. Both halves count — the workflow calls
+            // Studio/build/gate-g2.sh, so write access to that script is write access to
+            // the gate itself. Phase 1 protected only the workflow and left the scripts
+            // owned by nobody, which this test now prevents from recurring.
+            IEnumerable<string> exclusive = Strings(Permissions["humanExclusivePaths"]);
+
+            Assert.That(exclusive, Contains.Item(".github/workflows/**"));
+            Assert.That(exclusive, Contains.Item("Studio/build/**"));
         }
 
         [Test]
@@ -256,6 +261,35 @@ namespace MergeSurvivor.Kernel.Tests
             {
                 string path = Path.Combine(Kernel.RepoRoot, "Studio", "state", "escalations", id + ".json");
                 Assert.That(File.Exists(path), Is.True, $"Project state references missing escalation {id}.");
+            }
+        }
+
+        [Test]
+        public void EveryOpenEscalationIsListedInProjectState()
+        {
+            // The other direction, and the one that actually protects the founder. Without
+            // it an escalation can sit open on disk while project state reports none, so
+            // the question silently never reaches the daily digest. This gap was real:
+            // ESC-0001 was open through all of Phase 1 while openEscalations was empty.
+            string dir = Path.Combine(Kernel.RepoRoot, "Studio", "state", "escalations");
+            if (!Directory.Exists(dir))
+            {
+                Assert.Pass("No escalations recorded yet.");
+            }
+
+            var listed = new HashSet<string>(Strings(ProjectState["openEscalations"]));
+
+            foreach (string file in Directory.GetFiles(dir, "ESC-*.json"))
+            {
+                JsonNode escalation = Kernel.ReadJson(file);
+                if (escalation["status"].GetValue<string>() != "open")
+                {
+                    continue;
+                }
+
+                string id = escalation["id"].GetValue<string>();
+                Assert.That(listed, Contains.Item(id),
+                    $"{id} is open on disk but missing from project-state.openEscalations, so it would never reach the daily digest.");
             }
         }
 

@@ -1,0 +1,15 @@
+{
+  "id": "ADR-0003",
+  "title": "CI workflows are human-exclusive for dispatched agents, not for the founder's own session",
+  "status": "accepted",
+  "level": "L1",
+  "reversible": true,
+  "proposedBy": "orchestrator",
+  "proposedAt": "2026-08-27T12:00:00Z",
+  "ratifiedBy": "human",
+  "decidedAt": "2026-08-27T12:00:00Z",
+  "autoDefaultAllowed": true,
+  "context": "permissions.json lists .github/workflows/** as human-exclusive so an agent cannot switch off the gates that judge it. Phase 2 consists of writing exactly those workflows, so the rule needed either an exception or an owner. Left unstated, the first agent to hit the rule would find a precedent for ignoring it.",
+  "decision": "The prohibition binds dispatched agents acting on a work order. The founder, and a session the founder is directly driving, may create and change CI workflows. Every future change to .github/** requires founder review through CODEOWNERS, and check-forbidden-remedies.sh fails any diff that touches .github/workflows/ so an agent-authored change is caught mechanically rather than by trust.",
+  "consequences": "Phase 2 can proceed without a silent exception. The protection an agent actually needs is preserved: it still cannot disable its own gates, because the diff check refuses the change and CODEOWNERS refuses the merge. The cost is that CODEOWNERS is inert until branch protection is enabled in the GitHub UI, which only the founder can do."
+}

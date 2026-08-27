@@ -39,10 +39,16 @@ crashlytics-build.properties
 .vscode/
 *.userprefs
 
-# ---- dotnet build output (Studio/build) ----
+# ---- dotnet build output ----
 Studio/build/**/bin/
 Studio/build/**/obj/
 Studio/build/**/TestResults/
+Studio/sim/**/bin/
+Studio/sim/**/obj/
+
+# Simulation metrics are regenerated on every run; the durable record of a run is
+# the evidence file under Studio/evidence, not this scratch output.
+Studio/evidence/sims/metrics.json
 
 # ---- OS ----
 .DS_Store
