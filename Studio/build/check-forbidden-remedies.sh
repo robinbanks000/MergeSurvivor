@@ -119,7 +119,11 @@ if [ -n "$gate_touched" ]; then
 fi
 
 # --- 5. Performance ceilings touched ------------------------------------------
-raised="$(git diff "$MERGE_BASE" -- 'Studio' 'Assets' \
+# This script is excluded from its own scan: it necessarily contains the very
+# pattern it looks for, and matching itself produced a NOTE on every CI run that
+# touched it. A check that cries wolf about its own source teaches people to
+# ignore its output.
+raised="$(git diff "$MERGE_BASE" -- 'Studio' 'Assets' ':(exclude)Studio/build/check-forbidden-remedies.sh' \
   | grep -E '^\+' | grep -vE '^\+\+\+' \
   | grep -iE '(maxAlloc|frameBudget|maxFrameMs|perfThreshold|allocPerFrame)' || true)"
 
