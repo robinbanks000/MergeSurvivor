@@ -1,0 +1,43 @@
+{
+  "kind": "work-order",
+  "id": "WO-0007",
+  "agent": "core-simulation-engineer",
+  "level": "L3",
+  "goal": "Give RunState a reproducible run identity: a Seed set at construction and a monotonic TickCount, so a defect discovered mid-simulation can be reported and replayed as 'seed X at tick Y'.",
+  "rationale": "Priority 1 per the chief executive. ADR-0001 (Studio/decisions/ADR-0001.json) makes reproducibility from a seed the entire reason Core is a pure, engine-free library, but RunState today carries neither a seed nor a step counter -- a bug report cannot name a coordinate that does not exist. XorShiftRng already demonstrates this studio's pattern for exposing reproducible position (its State property); RunState needs the equivalent for a whole run.",
+  "inputs": [
+    "Assets/Core/Run/RunState.cs",
+    "Assets/Core/Rng/XorShiftRng.cs",
+    "Assets/Tests/Core.Tests/RunStateTests.cs",
+    "Assets/Unity/GameManager.cs",
+    "Studio/decisions/ADR-0001.json"
+  ],
+  "acceptanceCriteria": [
+    "A constructed RunState exposes a Seed value equal to exactly what was passed at construction, for every value representable by the seed's type, including zero; the value is never remapped or substituted (unlike XorShiftRng's zero-remap, which is an RNG-algorithm concern, not an identity concern).",
+    "A newly constructed RunState has TickCount equal to zero before any call to Tick.",
+    "Each call to Tick(dt) that does not throw and occurs while IsOver is false increments TickCount by exactly 1, regardless of the value of dt, including dt == 0; TickCount is a direct count of such calls and is never derived from ElapsedSeconds or any other float-accumulated value.",
+    "A call to Tick(dt) with dt < 0 throws ArgumentOutOfRangeException, exactly as today, and does not increment TickCount.",
+    "Calling Tick after EndRun has been called does not increment TickCount, mirroring the existing no-op behaviour for ElapsedSeconds.",
+    "AddScore, RegisterKill and EndRun never change TickCount or Seed.",
+    "Reset returns TickCount to zero, exactly as it already does for Score, Kills, ElapsedSeconds and IsOver, but Seed is unchanged by Reset and still equals the value supplied at the original construction.",
+    "Two RunState instances constructed with the same seed value report the same Seed value regardless of any subsequent difference in their Tick, AddScore, RegisterKill, EndRun or Reset call history.",
+    "RunState's Seed is never derived from wall-clock time, a static or global counter, or any other non-deterministic or unseeded source; if a seed is not supplied explicitly, the value used is a fixed, documented constant.",
+    "RunState retains a public constructor that requires no arguments, because Assets/Unity/GameManager.cs -- outside this task's write scope -- constructs RunState with `new RunState()` and must keep compiling without modification.",
+    "The pre-existing RunState contract (Score, Kills, ElapsedSeconds and IsOver semantics, including current behaviour around EndRun, Reset and negative-input validation) is unchanged; Assets/Tests/Core.Tests/RunStateTests.cs continues to pass, updated only as needed to supply seed arguments.",
+    "Assets/Core/Run/RunState.cs contains no reference to UnityEngine, and Tick continues to take dt as an explicit parameter rather than reading any ambient clock or Time.deltaTime."
+  ],
+  "acceptanceCriteriaAuthor": "work-order-author",
+  "writeScope": [
+    "Assets/Core/Run/**",
+    "Assets/Tests/Core.Tests/**"
+  ],
+  "evidenceRequired": ["T0", "T1"],
+  "retryBudget": 3,
+  "escalateIf": [
+    "Preserving the public parameterless constructor for Assets/Unity/GameManager.cs is impossible without an API change to Assets/Unity, which is outside this task's write scope",
+    "Reproducible identity is judged to require storing full IRng state on RunState rather than a Seed and a TickCount"
+  ],
+  "budgetId": "BUD-ENG",
+  "createdAt": "2026-08-27T15:00:00Z",
+  "status": "dispatched"
+}
