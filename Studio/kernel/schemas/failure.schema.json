@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/failure.schema.json",
+  "title": "Failure and retry record",
+  "description": "One attempt at self-correction. The contract forces a root-cause hypothesis to be written before a fix is applied, which is what stops the 'change things until it goes green' spiral.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "taskId", "agent", "at", "tier", "attempt", "retryBudget", "status", "symptom"],
+  "properties": {
+    "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/failureId" },
+    "taskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+    "agent": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
+    "at": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "tier": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/evidenceTier" },
+    "attempt": { "type": "integer", "minimum": 1, "maximum": 3 },
+    "retryBudget": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/retryBudget" },
+    "symptom": {
+      "description": "What was observed, quoted from the failing output rather than paraphrased.",
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString"
+    },
+    "rootCauseHypothesis": {
+      "description": "Written before any fix is attempted. Required by the state machine below.",
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString"
+    },
+    "ruledOut": {
+      "type": "array",
+      "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+    },
+    "remedyApplied": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+    "regressionTestAdded": {
+      "description": "The ratchet: a fix without a test that failed before and passes after leaves the bug free to return.",
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "observed",
+        "hypothesised",
+        "fix_attempted",
+        "resolved",
+        "escalated",
+        "budget_exhausted"
+      ]
+    },
+    "forbiddenRemedyDetected": {
+      "description": "Set when the attempted fix was one of the banned shortcuts. These do not make a build green, they make the gate blind.",
+      "type": "string",
+      "enum": [
+        "deleted-test",
+        "skipped-or-ignored-test",
+        "weakened-assertion",
+        "widened-tolerance",
+        "swallowed-exception",
+        "editor-only-guard",
+        "raised-perf-threshold",
+        "edited-ci-workflow"
+      ]
+    },
+    "escalationId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/escalationId" }
+  },
+  "allOf": [
+    {
+      "description": "No fix without a hypothesis first.",
+      "if": {
+        "properties": { "status": { "enum": ["fix_attempted", "resolved"] } },
+        "required": ["status"]
+      },
+      "then": { "required": ["rootCauseHypothesis", "remedyApplied"] }
+    },
+    {
+      "description": "A resolved failure must have left a regression test behind.",
+      "if": {
+        "properties": { "status": { "const": "resolved" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": { "regressionTestAdded": { "const": true } },
+        "required": ["regressionTestAdded"]
+      }
+    },
+    {
+      "description": "Running out of retries is not an ending — it hands the problem to the founder with what has been ruled out.",
+      "if": {
+        "properties": { "status": { "enum": ["escalated", "budget_exhausted"] } },
+        "required": ["status"]
+      },
+      "then": { "required": ["escalationId", "rootCauseHypothesis"] }
+    },
+    {
+      "description": "A detected forbidden remedy can only end one way: escalation. It must never be allowed to sit in fix_attempted or resolved.",
+      "if": { "required": ["forbiddenRemedyDetected"] },
+      "then": {
+        "properties": { "status": { "const": "escalated" } },
+        "required": ["status"]
+      }
+    }
+  ]
+}

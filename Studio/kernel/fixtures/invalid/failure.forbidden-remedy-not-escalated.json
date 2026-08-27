@@ -1,0 +1,15 @@
+{
+  "id": "FAIL-0004",
+  "taskId": "WO-0142",
+  "agent": "gameplay-engineer",
+  "at": "2026-08-27T10:05:00Z",
+  "tier": "T1",
+  "attempt": 1,
+  "retryBudget": 3,
+  "symptom": "Test failed.",
+  "rootCauseHypothesis": "The test is annoying.",
+  "remedyApplied": "Deleted the test.",
+  "regressionTestAdded": true,
+  "forbiddenRemedyDetected": "deleted-test",
+  "status": "resolved"
+}

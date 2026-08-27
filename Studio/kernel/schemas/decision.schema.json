@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/decision.schema.json",
+  "title": "Decision record (ADR)",
+  "description": "The machine-readable half of an ADR; the prose lives beside it in Studio/decisions/ADR-NNNN.md. Records are never edited — a changed mind produces a new record that supersedes the old one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "title",
+    "status",
+    "level",
+    "reversible",
+    "proposedBy",
+    "proposedAt",
+    "context",
+    "decision",
+    "consequences"
+  ],
+  "properties": {
+    "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/decisionId" },
+    "title": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+    "status": {
+      "type": "string",
+      "enum": ["proposed", "accepted", "rejected", "superseded"]
+    },
+    "level": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/decisionLevel" },
+    "reversible": { "type": "boolean" },
+    "proposedBy": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId" },
+    "proposedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "ratifiedBy": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId" },
+    "decidedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "supersededBy": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/decisionId" },
+    "supersedes": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/decisionId" },
+    "context": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+    "decision": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+    "consequences": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+    "escalationId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/escalationId" },
+    "autoDefaultAllowed": {
+      "description": "Whether this may be settled by the 24-hour timeout rather than an explicit answer.",
+      "type": "boolean"
+    },
+    "documentPath": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlob" }
+  },
+  "allOf": [
+    {
+      "description": "Irreversible decisions can never be settled by silence, however long the founder is away.",
+      "if": {
+        "properties": { "reversible": { "const": false } },
+        "required": ["reversible"]
+      },
+      "then": {
+        "properties": { "autoDefaultAllowed": { "const": false } },
+        "required": ["autoDefaultAllowed"]
+      }
+    },
+    {
+      "description": "L0 and L1 are the founder's to ratify. An agent cannot accept an architecture decision on its own authority.",
+      "if": {
+        "properties": { "level": { "enum": ["L0", "L1"] } },
+        "required": ["level"]
+      },
+      "then": {
+        "properties": { "ratifiedBy": { "const": "human" } }
+      }
+    },
+    {
+      "description": "An accepted decision must record who accepted it and when.",
+      "if": {
+        "properties": { "status": { "const": "accepted" } },
+        "required": ["status"]
+      },
+      "then": { "required": ["ratifiedBy", "decidedAt"] }
+    },
+    {
+      "description": "A superseded record must point at its replacement, or the trail breaks.",
+      "if": {
+        "properties": { "status": { "const": "superseded" } },
+        "required": ["status"]
+      },
+      "then": { "required": ["supersededBy"] }
+    }
+  ]
+}

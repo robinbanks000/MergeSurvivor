@@ -1,0 +1,15 @@
+{
+  "id": "FAIL-0001",
+  "taskId": "WO-0142",
+  "agent": "gameplay-engineer",
+  "at": "2026-08-27T10:05:00Z",
+  "tier": "T1",
+  "attempt": 1,
+  "retryBudget": 3,
+  "symptom": "MergeSystemTests.Merge_AtMaxTier_FailsWithAtMaxTier expected AtMaxTier but got TierMismatch.",
+  "rootCauseHypothesis": "The tier equality check runs before the max-tier check, so a maxed pair is reported as mismatched.",
+  "ruledOut": ["Weapon constructor validation", "test fixture setup"],
+  "remedyApplied": "Reordered the guards so the max-tier case is evaluated after equality is confirmed.",
+  "regressionTestAdded": true,
+  "status": "resolved"
+}

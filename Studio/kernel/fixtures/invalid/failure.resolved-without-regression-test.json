@@ -1,0 +1,14 @@
+{
+  "id": "FAIL-0005",
+  "taskId": "WO-0142",
+  "agent": "gameplay-engineer",
+  "at": "2026-08-27T10:05:00Z",
+  "tier": "T1",
+  "attempt": 1,
+  "retryBudget": 3,
+  "symptom": "Off-by-one in tier cap.",
+  "rootCauseHypothesis": "Guard order.",
+  "remedyApplied": "Reordered guards.",
+  "regressionTestAdded": false,
+  "status": "resolved"
+}

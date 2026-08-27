@@ -1,0 +1,9 @@
+{
+  "id": "EVD-0009",
+  "tier": "T3",
+  "producedBy": "balance-simulator",
+  "at": "2026-08-27T00:00:00Z",
+  "verdict": "pass",
+  "summary": "Ran the sim, looked fine.",
+  "commit": "1c23e13"
+}

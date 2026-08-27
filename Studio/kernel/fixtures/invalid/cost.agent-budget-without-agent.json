@@ -1,0 +1,8 @@
+{
+  "kind": "budget-registry",
+  "version": 1,
+  "updatedAt": "2026-08-27T00:00:00Z",
+  "budgets": [
+    { "id": "BUD-0009", "scope": "agent", "periodDays": 30, "softWarnUsd": 10, "hardStopUsd": 20, "onHardStop": "pause" }
+  ]
+}

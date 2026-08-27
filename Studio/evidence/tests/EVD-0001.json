@@ -1,0 +1,11 @@
+{
+  "id": "EVD-0001",
+  "tier": "T1",
+  "producedBy": "orchestrator",
+  "at": "2026-08-27T00:00:00Z",
+  "verdict": "pass",
+  "summary": "Phase 0 Core unit suite green: 45 tests covering merge rules, seeded RNG determinism, wave scheduling under long frames, player motor and run state.",
+  "commit": "1c23e13",
+  "metrics": { "testsPassed": 45, "testsFailed": 0, "durationMs": 240 },
+  "artifacts": ["Studio/build/gate-g2.sh"]
+}

@@ -1,0 +1,88 @@
+{
+  "kind": "gate-registry",
+  "version": 1,
+  "gates": [
+    {
+      "id": "G0",
+      "name": "Intake",
+      "owner": "orchestrator",
+      "checks": [
+        "Work order is well-formed against task.schema.json",
+        "At least one acceptance criterion exists",
+        "Acceptance criteria were authored by someone other than the assigned agent",
+        "Write scope is declared and within the agent's grant",
+        "Scope is one day or less"
+      ],
+      "evidenceTiers": [],
+      "overridableBy": ["orchestrator"],
+      "blocking": true
+    },
+    {
+      "id": "G1",
+      "name": "Design",
+      "owner": "design-architect",
+      "checks": [
+        "Conforms to PILLARS.md",
+        "Does not appear in NON_GOALS.md",
+        "Data schema validates",
+        "No scope creep beyond the originating work order"
+      ],
+      "evidenceTiers": [],
+      "overridableBy": ["human"],
+      "blocking": true
+    },
+    {
+      "id": "G2",
+      "name": "Code",
+      "owner": "ci",
+      "checks": [
+        "T0 static: builds with warnings as errors",
+        "T0 static: Assets/Core is engine-free",
+        "T1: all Core unit tests pass",
+        "Kernel contract tests pass",
+        "PR diff is a subset of the declared write scope",
+        "No forbidden remedy present in the diff"
+      ],
+      "evidenceTiers": ["T0", "T1"],
+      "overridableBy": [],
+      "blocking": true
+    },
+    {
+      "id": "G3",
+      "name": "Integration",
+      "owner": "ci",
+      "checks": [
+        "T2: Unity EditMode and PlayMode tests pass in batchmode",
+        "T4: no frame-budget or allocation regression against baseline"
+      ],
+      "evidenceTiers": ["T2", "T4"],
+      "overridableBy": ["human"],
+      "blocking": true
+    },
+    {
+      "id": "G4",
+      "name": "Balance",
+      "owner": "balance-simulator",
+      "checks": [
+        "T3: simulation metrics inside the tuning envelope",
+        "No softlock detected across the seed sweep",
+        "No single dominant strategy"
+      ],
+      "evidenceTiers": ["T3"],
+      "overridableBy": ["design-architect"],
+      "blocking": true
+    },
+    {
+      "id": "G5",
+      "name": "Release",
+      "owner": "human",
+      "checks": [
+        "T5: the founder played it and it is fun",
+        "Store, privacy and monetisation review"
+      ],
+      "evidenceTiers": ["T5"],
+      "overridableBy": ["human"],
+      "blocking": true
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "EVT-00000001",
+  "seq": 1,
+  "at": "2026-08-27T10:20:00Z",
+  "type": "gate.evaluated",
+  "actor": "ci",
+  "subject": { "gate": "G2", "taskId": "WO-0142" },
+  "summary": "G2 passed: build clean, Core engine-free, 45 tests green.",
+  "payload": { "verdict": "pass" }
+}

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/agent.schema.json",
+  "title": "Agent registry",
+  "description": "The roster. One document listing every agent, its authority level, its write scope and the gates that verify it. This file is the anti-sprawl control point: an agent that is not here does not exist.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "updatedAt", "agents"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "updatedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "agents": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/agent" }
+    }
+  },
+  "$defs": {
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "displayName",
+        "purpose",
+        "decisionLevel",
+        "runtime",
+        "writeScope",
+        "verifiedByGates",
+        "retryBudget",
+        "mayDeclareOwnWorkDone",
+        "mayEditProductionCode",
+        "mayWriteTests"
+      ],
+      "properties": {
+        "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
+        "displayName": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+        "purpose": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+        "decisionLevel": {
+          "description": "The highest level this agent may decide at without escalating.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/decisionLevel"
+        },
+        "runtime": {
+          "type": "string",
+          "enum": ["claude-code-subagent", "github-action", "both"]
+        },
+        "writeScope": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlobList" },
+        "readScope": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlobList" },
+        "verifiedByGates": {
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/gateId" },
+          "uniqueItems": true
+        },
+        "retryBudget": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/retryBudget" },
+        "budgetId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/budgetId" },
+        "mayDeclareOwnWorkDone": {
+          "description": "Always false. Completion is assigned by a gate, never claimed by the author. Encoded as a const so no registry edit can turn it on.",
+          "const": false
+        },
+        "mayEditProductionCode": { "type": "boolean" },
+        "mayWriteTests": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "description": "Separation of powers: the agent that hunts bugs must not be able to fix them, or its green flag would mean nothing.",
+          "if": {
+            "properties": { "id": { "const": "qa-adversary" } },
+            "required": ["id"]
+          },
+          "then": {
+            "properties": {
+              "mayEditProductionCode": { "const": false },
+              "mayWriteTests": { "const": true }
+            }
+          }
+        },
+        {
+          "description": "The orchestrator routes and gates; it does not implement, or it would be reviewing itself.",
+          "if": {
+            "properties": { "id": { "const": "orchestrator" } },
+            "required": ["id"]
+          },
+          "then": {
+            "properties": { "mayEditProductionCode": { "const": false } }
+          }
+        }
+      ]
+    }
+  }
+}

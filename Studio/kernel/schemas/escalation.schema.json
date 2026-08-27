@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/escalation.schema.json",
+  "title": "Escalation item",
+  "description": "One question put to the founder, batched into the daily digest. The reversible flag decides whether silence is an answer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "raisedBy",
+    "raisedAt",
+    "question",
+    "recommendation",
+    "evidence",
+    "reversible",
+    "status"
+  ],
+  "properties": {
+    "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/escalationId" },
+    "raisedBy": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
+    "raisedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "taskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+    "trigger": {
+      "description": "The only four reasons to interrupt the founder. Anything else is decided at the lowest level holding the evidence and logged.",
+      "type": "string",
+      "enum": [
+        "conflicts-with-higher-layer",
+        "irreversible",
+        "deadlock",
+        "money-legal-store-privacy"
+      ]
+    },
+    "question": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+    "recommendation": {
+      "description": "Never escalate without a recommendation; an open-ended question makes the founder do the thinking the agent was dispatched to do.",
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString"
+    },
+    "evidence": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/evidenceIdList" },
+    "reversible": { "type": "boolean" },
+    "defaultAction": {
+      "description": "What happens when the deadline passes with no answer.",
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString"
+    },
+    "deadline": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "status": {
+      "type": "string",
+      "enum": ["open", "resolved", "default-applied", "withdrawn"]
+    },
+    "resolvedBy": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId" },
+    "resolution": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+    "decisionId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/decisionId" }
+  },
+  "allOf": [
+    {
+      "description": "Reversible items must carry both a deadline and a default, because that is what stops the founder's absence from stalling the studio.",
+      "if": {
+        "properties": { "reversible": { "const": true } },
+        "required": ["reversible"]
+      },
+      "then": { "required": ["deadline", "defaultAction"] }
+    },
+    {
+      "description": "Irreversible items must have no deadline and no default. They wait for a human however long that takes; a timeout must never be able to execute one.",
+      "if": {
+        "properties": { "reversible": { "const": false } },
+        "required": ["reversible"]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            { "required": ["deadline"] },
+            { "required": ["defaultAction"] }
+          ]
+        }
+      }
+    },
+    {
+      "description": "A timeout can only ever apply to something reversible.",
+      "if": {
+        "properties": { "status": { "const": "default-applied" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": { "reversible": { "const": true } },
+        "required": ["reversible"]
+      }
+    },
+    {
+      "description": "A resolved item must say who decided and what they decided.",
+      "if": {
+        "properties": { "status": { "const": "resolved" } },
+        "required": ["status"]
+      },
+      "then": { "required": ["resolvedBy", "resolution"] }
+    }
+  ]
+}

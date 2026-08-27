@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-27T00:00:00Z",
+  "phase": {
+    "current": 1,
+    "name": "Kernel contracts",
+    "blockedOn": [
+      "Unity CI secrets (UNITY_LICENSE, UNITY_EMAIL, UNITY_PASSWORD) must be added by the founder before Phase 2 gates G3 and G4 can run"
+    ]
+  },
+  "backlog": [
+    {
+      "id": "WO-0001",
+      "title": "Wire kernel contract validation into the G2 gate in CI",
+      "level": "L1",
+      "status": "queued",
+      "priority": 1
+    },
+    {
+      "id": "WO-0002",
+      "title": "Author PILLARS.md and NON_GOALS.md",
+      "level": "L0",
+      "status": "queued",
+      "priority": 1
+    },
+    {
+      "id": "WO-0003",
+      "title": "Build the headless simulation harness the balance gate depends on",
+      "level": "L1",
+      "status": "queued",
+      "priority": 2,
+      "blockedBy": ["WO-0002"]
+    }
+  ],
+  "agentStatus": [
+    { "agent": "orchestrator", "state": "working", "currentTaskId": "WO-0001" },
+    { "agent": "design-architect", "state": "not_yet_created" },
+    { "agent": "gameplay-engineer", "state": "not_yet_created" },
+    { "agent": "qa-adversary", "state": "not_yet_created" },
+    { "agent": "balance-simulator", "state": "not_yet_created" }
+  ],
+  "openEscalations": [],
+  "humanQueue": [
+    "Add Unity CI secrets for GameCI",
+    "Confirm the Unity editor version pinned in ProjectSettings/ProjectVersion.txt",
+    "Author the game pillars, which no agent may write"
+  ]
+}

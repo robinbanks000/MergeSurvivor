@@ -1,0 +1,15 @@
+{
+  "kind": "work-order",
+  "id": "WO-0143",
+  "agent": "gameplay-engineer",
+  "level": "L3",
+  "goal": "Make the game more fun",
+  "rationale": "vibes",
+  "acceptanceCriteria": [],
+  "acceptanceCriteriaAuthor": "design-architect",
+  "writeScope": ["Assets/Core/**"],
+  "evidenceRequired": ["T1"],
+  "retryBudget": 3,
+  "createdAt": "2026-08-27T09:00:00Z",
+  "status": "dispatched"
+}

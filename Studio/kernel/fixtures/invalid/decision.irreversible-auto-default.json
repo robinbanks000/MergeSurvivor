@@ -1,0 +1,13 @@
+{
+  "id": "ADR-0009",
+  "title": "Sign the app with a new key",
+  "status": "proposed",
+  "level": "L1",
+  "reversible": false,
+  "proposedBy": "orchestrator",
+  "proposedAt": "2026-08-27T00:00:00Z",
+  "autoDefaultAllowed": true,
+  "context": "c",
+  "decision": "d",
+  "consequences": "e"
+}

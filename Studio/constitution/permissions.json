@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-27T00:00:00Z",
+  "humanExclusivePaths": [
+    ".github/workflows/**",
+    "Studio/constitution/**",
+    "Studio/kernel/schemas/**",
+    "ProjectSettings/**",
+    "Assets/Monetization/**",
+    "Assets/Analytics/**"
+  ],
+  "grants": [
+    {
+      "agent": "orchestrator",
+      "write": ["Studio/state/**", "Studio/decisions/**", "Studio/orders/**", "Studio/evidence/**"],
+      "read": ["**"],
+      "append": ["Studio/lessons/**"]
+    },
+    {
+      "agent": "design-architect",
+      "write": ["GameDesign/**", "Assets/Data/**", "Studio/evidence/**"],
+      "read": ["Studio/constitution/**", "Studio/decisions/**", "Assets/**"],
+      "append": ["Studio/lessons/**"]
+    },
+    {
+      "agent": "gameplay-engineer",
+      "write": ["Assets/Core/**", "Assets/Unity/**", "Assets/Tests/**", "Studio/evidence/**"],
+      "read": ["Studio/constitution/**", "Studio/decisions/**", "GameDesign/**", "Assets/**"],
+      "append": ["Studio/lessons/**"]
+    },
+    {
+      "agent": "qa-adversary",
+      "write": ["Assets/Tests/**", "Studio/evidence/**"],
+      "read": ["**"],
+      "append": ["Studio/lessons/**"]
+    },
+    {
+      "agent": "balance-simulator",
+      "write": ["Assets/Data/Tuning/**", "Studio/sim/**", "Studio/evidence/**"],
+      "read": ["Studio/constitution/**", "Studio/decisions/**", "Assets/Core/**", "Assets/Data/**"],
+      "append": ["Studio/lessons/**"]
+    }
+  ]
+}

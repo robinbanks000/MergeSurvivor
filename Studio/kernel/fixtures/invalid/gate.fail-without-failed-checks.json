@@ -1,0 +1,9 @@
+{
+  "kind": "gate-verdict",
+  "gate": "G3",
+  "taskId": "WO-0142",
+  "verdict": "fail",
+  "evaluatedAt": "2026-08-27T10:20:00Z",
+  "evaluatedBy": "ci",
+  "evidence": ["EVD-0001"]
+}

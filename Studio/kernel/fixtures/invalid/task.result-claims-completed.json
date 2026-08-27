@@ -1,0 +1,10 @@
+{
+  "kind": "work-result",
+  "id": "WO-0142",
+  "taskId": "WO-0142",
+  "agent": "gameplay-engineer",
+  "status": "completed",
+  "submittedAt": "2026-08-27T10:15:00Z",
+  "changes": ["Assets/Core/Merge/MergeSystem.cs"],
+  "evidence": ["EVD-0001"]
+}

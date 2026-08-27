@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-27T00:00:00Z",
+  "layers": [
+    { "layer": "L0", "name": "Constitution", "path": "Studio/constitution/", "writePolicy": "human-only", "writers": ["human"], "budget": { "maxWords": 1500 }, "compactionOwner": "human", "loadedByDefault": true },
+    { "layer": "L1", "name": "Decisions", "path": "Studio/decisions/", "writePolicy": "mutable", "writers": ["orchestrator"], "budget": { "maxEntries": 500 }, "compactionOwner": "orchestrator" },
+    { "layer": "L2", "name": "State", "path": "Studio/state/", "writePolicy": "mutable", "writers": ["orchestrator"], "budget": { "maxEntries": 200 }, "compactionOwner": "orchestrator" },
+    { "layer": "L3", "name": "Evidence", "path": "Studio/evidence/", "writePolicy": "write-once", "writers": ["ci"], "budget": { "retentionDays": 30 }, "compactionOwner": "ci" },
+    { "layer": "L4", "name": "Lessons", "path": "Studio/lessons/", "writePolicy": "append-only", "writers": ["orchestrator"], "budget": { "maxEntries": 100 }, "compactionOwner": "orchestrator" }
+  ]
+}

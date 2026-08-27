@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-27T00:00:00Z",
+  "agents": [
+    { "id": "orchestrator", "displayName": "A", "purpose": "p", "decisionLevel": "L1", "runtime": "both", "writeScope": ["Studio/state/**"], "verifiedByGates": [], "retryBudget": 1, "mayDeclareOwnWorkDone": false, "mayEditProductionCode": false, "mayWriteTests": false },
+    { "id": "design-architect", "displayName": "B", "purpose": "p", "decisionLevel": "L2", "runtime": "both", "writeScope": ["GameDesign/**"], "verifiedByGates": ["G1"], "retryBudget": 2, "mayDeclareOwnWorkDone": false, "mayEditProductionCode": false, "mayWriteTests": false },
+    { "id": "gameplay-engineer", "displayName": "C", "purpose": "p", "decisionLevel": "L3", "runtime": "both", "writeScope": ["Assets/Core/**"], "verifiedByGates": ["G2"], "retryBudget": 3, "mayDeclareOwnWorkDone": false, "mayEditProductionCode": true, "mayWriteTests": true },
+    { "id": "qa-adversary", "displayName": "D", "purpose": "p", "decisionLevel": "L3", "runtime": "both", "writeScope": ["Assets/Tests/**"], "verifiedByGates": ["G2"], "retryBudget": 3, "mayDeclareOwnWorkDone": false, "mayEditProductionCode": false, "mayWriteTests": true },
+    { "id": "balance-simulator", "displayName": "E", "purpose": "p", "decisionLevel": "L4", "runtime": "both", "writeScope": ["Studio/sim/**"], "verifiedByGates": ["G4"], "retryBudget": 3, "mayDeclareOwnWorkDone": false, "mayEditProductionCode": false, "mayWriteTests": false },
+    { "id": "sound-designer", "displayName": "F", "purpose": "Agent sprawl.", "decisionLevel": "L3", "runtime": "both", "writeScope": ["Assets/Audio/**"], "verifiedByGates": ["G2"], "retryBudget": 3, "mayDeclareOwnWorkDone": false, "mayEditProductionCode": true, "mayWriteTests": false }
+  ]
+}

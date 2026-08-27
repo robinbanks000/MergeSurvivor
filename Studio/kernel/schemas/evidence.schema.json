@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/evidence.schema.json",
+  "title": "Evidence record",
+  "description": "The output of one verification run. Gates consume these; nothing is done on an agent's say-so. Records are write-once — evidence that can be rewritten after the fact is not evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "tier", "producedBy", "at", "verdict", "summary"],
+  "properties": {
+    "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/evidenceId" },
+    "tier": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/evidenceTier" },
+    "producedBy": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId" },
+    "taskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+    "at": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "verdict": { "type": "string", "enum": ["pass", "fail", "inconclusive"] },
+    "summary": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+    "commit": {
+      "description": "The commit the run was performed against. Evidence without a commit cannot be tied to a state of the code.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
+    "seed": {
+      "description": "For simulation and fuzz runs: the seed that reproduces this exact result.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "metrics": {
+      "description": "Numbers a gate can compare against a threshold.",
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "artifacts": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlobList" },
+    "failureId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/failureId" }
+  },
+  "allOf": [
+    {
+      "description": "T3 is the simulation tier. Its whole purpose is to produce numbers for the balance gate to judge, so a T3 record without metrics is meaningless.",
+      "if": {
+        "properties": { "tier": { "const": "T3" } },
+        "required": ["tier"]
+      },
+      "then": {
+        "required": ["metrics", "seed"],
+        "properties": { "metrics": { "minProperties": 1 } }
+      }
+    },
+    {
+      "description": "T5 is human playtest — the one tier no agent can produce.",
+      "if": {
+        "properties": { "tier": { "const": "T5" } },
+        "required": ["tier"]
+      },
+      "then": {
+        "properties": { "producedBy": { "const": "human" } }
+      }
+    },
+    {
+      "description": "Automated tiers must say which commit they ran against.",
+      "if": {
+        "properties": { "tier": { "enum": ["T0", "T1", "T2", "T3", "T4"] } },
+        "required": ["tier"]
+      },
+      "then": { "required": ["commit"] }
+    },
+    {
+      "description": "A failing run must link the failure record that roots it out.",
+      "if": {
+        "properties": { "verdict": { "const": "fail" } },
+        "required": ["verdict"]
+      },
+      "then": { "required": ["failureId"] }
+    }
+  ]
+}

@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/task.schema.json",
+  "title": "Task contract (work order and work result)",
+  "description": "The unit of dispatched work. A work order goes out to an agent; a work result comes back. Note that the result cannot express completion — see the status enum on workResult.",
+  "oneOf": [
+    { "$ref": "#/$defs/workOrder" },
+    { "$ref": "#/$defs/workResult" }
+  ],
+  "$defs": {
+    "workOrder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "agent",
+        "level",
+        "goal",
+        "rationale",
+        "acceptanceCriteria",
+        "acceptanceCriteriaAuthor",
+        "writeScope",
+        "evidenceRequired",
+        "retryBudget",
+        "createdAt",
+        "status"
+      ],
+      "properties": {
+        "kind": { "const": "work-order" },
+        "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+        "agent": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
+        "level": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/decisionLevel" },
+        "goal": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+        "rationale": {
+          "description": "Why this work exists: a pillar or an ADR. Work with no traceable reason is scope creep.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString"
+        },
+        "inputs": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlobList" },
+        "acceptanceCriteria": {
+          "description": "Written before work starts. Without at least one, autonomous QA is impossible because the agent would be free to define its own success.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "acceptanceCriteriaAuthor": {
+          "description": "Must differ from `agent`. JSON Schema cannot compare two sibling fields, so KernelCrossCheckTests enforces it.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId"
+        },
+        "writeScope": {
+          "description": "The only paths this task may touch. CI checks the PR diff against it.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlob" },
+          "uniqueItems": true
+        },
+        "evidenceRequired": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/evidenceTier" },
+          "uniqueItems": true
+        },
+        "retryBudget": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/retryBudget" },
+        "escalateIf": {
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "budgetId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/budgetId" },
+        "createdAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+        "deadline": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "dispatched",
+            "in_progress",
+            "gate_pending",
+            "blocked",
+            "escalated",
+            "completed",
+            "abandoned"
+          ]
+        },
+        "completedByGate": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/gateId" },
+        "completedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" }
+      },
+      "allOf": [
+        {
+          "description": "A task is only complete when a gate said so. Completion without a gate verdict is exactly the self-certification the architecture forbids.",
+          "if": {
+            "properties": { "status": { "const": "completed" } },
+            "required": ["status"]
+          },
+          "then": { "required": ["completedByGate", "completedAt"] }
+        }
+      ]
+    },
+
+    "workResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "taskId", "agent", "status", "submittedAt", "evidence", "changes"],
+      "properties": {
+        "kind": { "const": "work-result" },
+        "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+        "taskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+        "agent": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
+        "status": {
+          "description": "There is deliberately no 'completed' value here. An agent physically cannot report its own work as done; only a gate can move the work order to completed.",
+          "type": "string",
+          "enum": ["gate_pending", "blocked", "escalated"]
+        },
+        "submittedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+        "changes": {
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlob" },
+          "uniqueItems": true
+        },
+        "evidence": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/evidenceIdList" },
+        "deviations": {
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "openQuestions": {
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "lessons": {
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "escalationId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/escalationId" },
+        "failureId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/failureId" }
+      },
+      "allOf": [
+        {
+          "description": "Escalating without a reference to the escalation record would lose the question.",
+          "if": {
+            "properties": { "status": { "const": "escalated" } },
+            "required": ["status"]
+          },
+          "then": { "required": ["escalationId"] }
+        }
+      ]
+    }
+  }
+}

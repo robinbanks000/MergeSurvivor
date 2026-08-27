@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/gate.schema.json",
+  "title": "Gate registry and gate verdict",
+  "description": "Gates are what turn work into done. The registry defines them; a verdict records one evaluation.",
+  "oneOf": [
+    { "$ref": "#/$defs/gateRegistry" },
+    { "$ref": "#/$defs/gateVerdict" }
+  ],
+  "$defs": {
+    "gateRegistry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "version", "gates"],
+      "properties": {
+        "kind": { "const": "gate-registry" },
+        "version": { "type": "integer", "minimum": 1 },
+        "gates": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": { "$ref": "#/$defs/gate" }
+        }
+      }
+    },
+
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "owner", "checks", "overridableBy", "blocking"],
+      "properties": {
+        "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/gateId" },
+        "name": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+        "owner": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId" },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "evidenceTiers": {
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/evidenceTier" },
+          "uniqueItems": true
+        },
+        "overridableBy": {
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId" },
+          "uniqueItems": true
+        },
+        "blocking": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "description": "The anti-rot invariant. G2 (compiles and tests pass) has no override by anyone, the founder included: the moment a way around it exists, an autonomous system will find that way.",
+          "if": {
+            "properties": { "id": { "const": "G2" } },
+            "required": ["id"]
+          },
+          "then": {
+            "properties": {
+              "overridableBy": { "const": [] },
+              "blocking": { "const": true }
+            }
+          }
+        },
+        {
+          "description": "Release is a human judgement about whether the game is fun. No agent can own or override it.",
+          "if": {
+            "properties": { "id": { "const": "G5" } },
+            "required": ["id"]
+          },
+          "then": {
+            "properties": {
+              "owner": { "const": "human" },
+              "overridableBy": { "const": ["human"] }
+            }
+          }
+        }
+      ]
+    },
+
+    "gateVerdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "gate", "taskId", "verdict", "evaluatedAt", "evaluatedBy", "evidence"],
+      "properties": {
+        "kind": { "const": "gate-verdict" },
+        "gate": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/gateId" },
+        "taskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+        "verdict": { "type": "string", "enum": ["pass", "fail", "overridden"] },
+        "evaluatedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+        "evaluatedBy": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId" },
+        "evidence": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/evidenceIdList" },
+        "failedChecks": {
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "overrideJustification": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+        "overrideDecisionId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/decisionId" }
+      },
+      "allOf": [
+        {
+          "description": "An override must be justified and traceable to a recorded decision, so it can never be a quiet one-off.",
+          "if": {
+            "properties": { "verdict": { "const": "overridden" } },
+            "required": ["verdict"]
+          },
+          "then": { "required": ["overrideJustification", "overrideDecisionId"] }
+        },
+        {
+          "description": "G2 can never be overridden, so no verdict on it may carry that value.",
+          "if": {
+            "properties": { "gate": { "const": "G2" } },
+            "required": ["gate"]
+          },
+          "then": {
+            "properties": { "verdict": { "enum": ["pass", "fail"] } }
+          }
+        },
+        {
+          "description": "A failing verdict must name what failed, or the agent has nothing to root-cause.",
+          "if": {
+            "properties": { "verdict": { "const": "fail" } },
+            "required": ["verdict"]
+          },
+          "then": {
+            "required": ["failedChecks"],
+            "properties": { "failedChecks": { "minItems": 1 } }
+          }
+        }
+      ]
+    }
+  }
+}

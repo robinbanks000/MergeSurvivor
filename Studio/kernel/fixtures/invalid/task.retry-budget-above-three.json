@@ -1,0 +1,15 @@
+{
+  "kind": "work-order",
+  "id": "WO-0145",
+  "agent": "gameplay-engineer",
+  "level": "L3",
+  "goal": "Keep trying until it works",
+  "rationale": "ADR-0001",
+  "acceptanceCriteria": ["It works"],
+  "acceptanceCriteriaAuthor": "design-architect",
+  "writeScope": ["Assets/Core/**"],
+  "evidenceRequired": ["T1"],
+  "retryBudget": 10,
+  "createdAt": "2026-08-27T09:00:00Z",
+  "status": "dispatched"
+}

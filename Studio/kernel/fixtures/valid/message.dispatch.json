@@ -1,0 +1,9 @@
+{
+  "id": "MSG-0001",
+  "at": "2026-08-27T09:00:00Z",
+  "from": "orchestrator",
+  "to": "gameplay-engineer",
+  "intent": "dispatch",
+  "body": "Work order WO-0142 is ready. Acceptance criteria were authored by the design architect; do not amend them.",
+  "taskId": "WO-0142"
+}

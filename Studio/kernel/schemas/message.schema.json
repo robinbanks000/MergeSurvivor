@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/message.schema.json",
+  "title": "Communication contract",
+  "description": "The blackboard protocol. Agents do not talk to each other: N-way chat grows quadratically, poisons context and leaves no audit trail. Every message has the orchestrator on one end, and this schema makes that structurally impossible to violate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "at", "from", "to", "intent", "body"],
+  "properties": {
+    "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/messageId" },
+    "at": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "from": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId" },
+    "to": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId" },
+    "intent": {
+      "type": "string",
+      "enum": ["dispatch", "result", "question", "answer", "bug-report", "notice"]
+    },
+    "body": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+    "taskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+    "inReplyTo": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/messageId" },
+    "attachments": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlobList" }
+  },
+  "allOf": [
+    {
+      "description": "The hub-and-spoke rule: the orchestrator must be the sender or the recipient. A gameplay-engineer to qa-adversary message cannot be represented at all.",
+      "anyOf": [
+        {
+          "properties": { "from": { "const": "orchestrator" } },
+          "required": ["from"]
+        },
+        {
+          "properties": { "to": { "const": "orchestrator" } },
+          "required": ["to"]
+        }
+      ]
+    },
+    {
+      "description": "Nobody may address themselves.",
+      "not": {
+        "anyOf": [
+          {
+            "properties": {
+              "from": { "const": "orchestrator" },
+              "to": { "const": "orchestrator" }
+            },
+            "required": ["from", "to"]
+          }
+        ]
+      }
+    },
+    {
+      "description": "Dispatches and results are always about a specific work order.",
+      "if": {
+        "properties": { "intent": { "enum": ["dispatch", "result"] } },
+        "required": ["intent"]
+      },
+      "then": { "required": ["taskId"] }
+    },
+    {
+      "description": "Only the QA Adversary files bug reports; that is the whole point of the role.",
+      "if": {
+        "properties": { "intent": { "const": "bug-report" } },
+        "required": ["intent"]
+      },
+      "then": {
+        "properties": { "from": { "const": "qa-adversary" } },
+        "required": ["from"]
+      }
+    }
+  ]
+}

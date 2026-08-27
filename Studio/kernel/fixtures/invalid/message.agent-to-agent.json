@@ -1,0 +1,8 @@
+{
+  "id": "MSG-0003",
+  "at": "2026-08-27T11:30:00Z",
+  "from": "gameplay-engineer",
+  "to": "qa-adversary",
+  "intent": "question",
+  "body": "Can you loosen that assertion for me?"
+}

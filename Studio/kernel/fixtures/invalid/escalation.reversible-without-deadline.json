@@ -1,0 +1,11 @@
+{
+  "id": "ESC-0004",
+  "raisedBy": "orchestrator",
+  "raisedAt": "2026-08-27T00:00:00Z",
+  "trigger": "deadlock",
+  "question": "Merge cap of 8 or 10?",
+  "recommendation": "10",
+  "evidence": ["EVD-0001"],
+  "reversible": true,
+  "status": "open"
+}

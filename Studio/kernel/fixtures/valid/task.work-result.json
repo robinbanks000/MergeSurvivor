@@ -1,0 +1,13 @@
+{
+  "kind": "work-result",
+  "id": "WO-0142",
+  "taskId": "WO-0142",
+  "agent": "gameplay-engineer",
+  "status": "gate_pending",
+  "submittedAt": "2026-08-27T10:15:00Z",
+  "changes": ["Assets/Core/Merge/MergeSystem.cs", "Assets/Tests/Core.Tests/Merge/MergeSystemTests.cs"],
+  "evidence": ["EVD-0001"],
+  "deviations": ["Used a readonly struct rather than a class to avoid allocation in the merge loop"],
+  "openQuestions": [],
+  "lessons": ["MergeResult as a struct keeps the hot loop allocation-free"]
+}

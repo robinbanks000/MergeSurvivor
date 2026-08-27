@@ -1,0 +1,14 @@
+{
+  "id": "ADR-0002",
+  "title": "Kernel contracts are JSON validated by JSON Schema, not YAML",
+  "status": "proposed",
+  "level": "L1",
+  "reversible": true,
+  "proposedBy": "orchestrator",
+  "proposedAt": "2026-08-27T00:00:00Z",
+  "autoDefaultAllowed": true,
+  "escalationId": "ESC-0001",
+  "context": "The approved architecture document sketched work orders and escalations in YAML. Implementing them exposed a problem: YAML has no widely supported schema language, so validating it means converting to JSON first anyway, and its implicit typing produces a class of silent bugs where an unquoted value changes type. Agents emit JSON far more reliably than they emit correctly indented YAML.",
+  "decision": "Every machine-written kernel artifact is JSON, governed by a JSON Schema in Studio/kernel/schemas and validated in the G2 gate. Human-authored prose stays Markdown: pillars, non-goals and the narrative half of each ADR.",
+  "consequences": "Contracts are validated mechanically rather than by convention, and malformed agent output fails at the gate instead of downstream. The cost is that JSON carries no comments, so any explanation must live in a description field or the companion Markdown. This deviates from the YAML shown in the approved architecture, which is why it is raised as ESC-0001 rather than applied silently."
+}

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/common.schema.json",
+  "title": "Common kernel definitions",
+  "description": "Shared identifier, actor and enum definitions. Every other kernel schema references these so the vocabulary cannot drift between contracts.",
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agentId": {
+      "description": "The five roles in the studio. Adding a sixth requires an ADR and a change here, which is what stops agent-sprawl from happening by accident.",
+      "type": "string",
+      "enum": [
+        "orchestrator",
+        "design-architect",
+        "gameplay-engineer",
+        "qa-adversary",
+        "balance-simulator"
+      ]
+    },
+    "actorId": {
+      "description": "Anything that can act: an agent, the founder, or automated CI.",
+      "anyOf": [
+        { "$ref": "#/$defs/agentId" },
+        { "type": "string", "enum": ["human", "ci"] }
+      ]
+    },
+    "decisionLevel": {
+      "description": "L0 constitution (human only) through L4 tuning (balance simulator).",
+      "type": "string",
+      "enum": ["L0", "L1", "L2", "L3", "L4"]
+    },
+    "memoryLayer": {
+      "type": "string",
+      "enum": ["L0", "L1", "L2", "L3", "L4"]
+    },
+    "gateId": {
+      "type": "string",
+      "enum": ["G0", "G1", "G2", "G3", "G4", "G5"]
+    },
+    "evidenceTier": {
+      "description": "T0 static through T5 human playtest.",
+      "type": "string",
+      "enum": ["T0", "T1", "T2", "T3", "T4", "T5"]
+    },
+    "pathGlob": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\s]+$"
+    },
+    "pathGlobList": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/pathGlob" },
+      "uniqueItems": true
+    },
+    "taskId": { "type": "string", "pattern": "^WO-[0-9]{4,}$" },
+    "eventId": { "type": "string", "pattern": "^EVT-[0-9]{8,}$" },
+    "messageId": { "type": "string", "pattern": "^MSG-[0-9]{4,}$" },
+    "decisionId": { "type": "string", "pattern": "^ADR-[0-9]{4,}$" },
+    "evidenceId": { "type": "string", "pattern": "^EVD-[0-9]{4,}$" },
+    "escalationId": { "type": "string", "pattern": "^ESC-[0-9]{4,}$" },
+    "failureId": { "type": "string", "pattern": "^FAIL-[0-9]{4,}$" },
+    "budgetId": { "type": "string", "pattern": "^BUD-[0-9]{4,}$" },
+    "evidenceIdList": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidenceId" },
+      "uniqueItems": true
+    },
+    "usd": { "type": "number", "minimum": 0 },
+    "retryBudget": {
+      "description": "Capped at 3 by the architecture: after three failed attempts an agent must escalate with a hypothesis rather than keep guessing.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    }
+  }
+}

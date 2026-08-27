@@ -1,0 +1,9 @@
+{
+  "id": "EVT-00000002",
+  "seq": 2,
+  "at": "2026-08-27T10:22:00Z",
+  "type": "permission.denied",
+  "actor": "gameplay-engineer",
+  "subject": { "path": ".github/workflows/gate-g2-code.yml", "taskId": "WO-0142" },
+  "summary": "Refused: CI workflows are human-exclusive so an agent cannot disable the gates that judge it."
+}

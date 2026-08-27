@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-27T00:00:00Z",
+  "agents": [
+    {
+      "id": "gameplay-engineer",
+      "displayName": "Gameplay Engineer",
+      "purpose": "Implements features and marks them done itself.",
+      "decisionLevel": "L3",
+      "runtime": "both",
+      "writeScope": ["Assets/Core/**"],
+      "verifiedByGates": ["G2"],
+      "retryBudget": 3,
+      "mayDeclareOwnWorkDone": true,
+      "mayEditProductionCode": true,
+      "mayWriteTests": true
+    }
+  ]
+}

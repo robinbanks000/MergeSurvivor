@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-27T00:00:00Z",
+  "agents": [
+    {
+      "id": "qa-adversary",
+      "displayName": "QA Adversary",
+      "purpose": "Hunts bugs and also fixes them, which defeats the separation of powers.",
+      "decisionLevel": "L3",
+      "runtime": "both",
+      "writeScope": ["Assets/Tests/**"],
+      "verifiedByGates": ["G2"],
+      "retryBudget": 3,
+      "mayDeclareOwnWorkDone": false,
+      "mayEditProductionCode": true,
+      "mayWriteTests": true
+    }
+  ]
+}

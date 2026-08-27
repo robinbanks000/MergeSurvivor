@@ -1,0 +1,9 @@
+{
+  "id": "MSG-0002",
+  "at": "2026-08-27T11:00:00Z",
+  "from": "qa-adversary",
+  "to": "orchestrator",
+  "intent": "bug-report",
+  "body": "WaveScheduler.Tick loses spawns when dt is negative; it should reject the input instead of silently rewinding the timer.",
+  "taskId": "WO-0142"
+}

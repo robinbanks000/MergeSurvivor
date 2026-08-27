@@ -1,0 +1,13 @@
+{
+  "id": "ESC-0003",
+  "raisedBy": "orchestrator",
+  "raisedAt": "2026-08-27T00:00:00Z",
+  "trigger": "irreversible",
+  "question": "Publish the game to the store?",
+  "recommendation": "Publish",
+  "evidence": ["EVD-0001"],
+  "reversible": false,
+  "defaultAction": "Publish anyway",
+  "deadline": "2026-08-28T09:00:00Z",
+  "status": "open"
+}

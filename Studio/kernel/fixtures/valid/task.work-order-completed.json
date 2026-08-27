@@ -1,0 +1,17 @@
+{
+  "kind": "work-order",
+  "id": "WO-0141",
+  "agent": "gameplay-engineer",
+  "level": "L3",
+  "goal": "Replace string-based InvokeRepeating with a seeded wave scheduler",
+  "rationale": "ADR-0001",
+  "acceptanceCriteria": ["A long frame produces every spawn that came due"],
+  "acceptanceCriteriaAuthor": "orchestrator",
+  "writeScope": ["Assets/Core/Spawning/**"],
+  "evidenceRequired": ["T1"],
+  "retryBudget": 3,
+  "createdAt": "2026-08-27T08:00:00Z",
+  "status": "completed",
+  "completedByGate": "G2",
+  "completedAt": "2026-08-27T08:40:00Z"
+}

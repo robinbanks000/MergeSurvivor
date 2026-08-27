@@ -21,7 +21,7 @@ echo "=== T0: build (warnings are errors) ==="
 dotnet build Studio/build/MergeSurvivor.sln --nologo
 
 echo
-echo "=== T1: Core unit tests ==="
+echo "=== T1: Core unit tests + kernel contract tests ==="
 dotnet test Studio/build/MergeSurvivor.sln --nologo --no-build
 
 echo

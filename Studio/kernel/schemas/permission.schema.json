@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/permission.schema.json",
+  "title": "Permission matrix",
+  "description": "Least-privilege write access per agent, plus the paths no agent may ever touch. The orchestrator checks this before dispatch; CI checks the PR diff against it afterwards.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "updatedAt", "humanExclusivePaths", "grants"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "updatedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "humanExclusivePaths": {
+      "description": "Paths only the founder may write. Must include .github/workflows/** — an agent that can edit CI can switch off the gates that judge it, which is the single most dangerous permission in the system. KernelCrossCheckTests enforces both that presence and that no grant overlaps this list.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlob" },
+      "uniqueItems": true
+    },
+    "grants": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/grant" }
+    }
+  },
+  "$defs": {
+    "grant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent", "write"],
+      "properties": {
+        "agent": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
+        "write": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlob" },
+              {
+                "description": "Belt and braces alongside the cross-check: no write grant may mention the CI workflow directory at all.",
+                "not": { "pattern": "^\\.github/" }
+              }
+            ]
+          },
+          "uniqueItems": true
+        },
+        "read": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlobList" },
+        "append": {
+          "description": "Paths the agent may add to but never rewrite, such as the lessons log.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlobList"
+        }
+      }
+    },
+    "denial": {
+      "description": "Recorded when a dispatch or a diff was refused for reaching outside scope. Kept as a definition so the event log can reference the shape.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent", "attemptedPath", "at", "reason"],
+      "properties": {
+        "agent": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
+        "attemptedPath": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlob" },
+        "at": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+        "taskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+        "reason": {
+          "type": "string",
+          "enum": ["outside-write-scope", "human-exclusive-path", "no-grant-for-agent"]
+        }
+      }
+    }
+  }
+}

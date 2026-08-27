@@ -1,0 +1,15 @@
+{
+  "id": "ADR-0010",
+  "title": "Adopt a new architecture without asking",
+  "status": "accepted",
+  "level": "L1",
+  "reversible": true,
+  "proposedBy": "orchestrator",
+  "proposedAt": "2026-08-27T00:00:00Z",
+  "ratifiedBy": "orchestrator",
+  "decidedAt": "2026-08-27T00:00:00Z",
+  "autoDefaultAllowed": true,
+  "context": "c",
+  "decision": "d",
+  "consequences": "e"
+}

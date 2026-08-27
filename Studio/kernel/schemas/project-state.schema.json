@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/project-state.schema.json",
+  "title": "Project state",
+  "description": "The orchestrator's working snapshot: what is queued, what each agent is doing, and where the phase stands. This is the one high-churn document, and the only place the founder needs to look to know where things are.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "updatedAt", "phase", "backlog", "agentStatus"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "updatedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current", "name"],
+      "properties": {
+        "current": { "type": "integer", "minimum": 0, "maximum": 4 },
+        "name": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+        "blockedOn": {
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "sprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "goal"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^SP-[0-9]{3,}$" },
+        "goal": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+        "startsAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+        "endsAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" }
+      }
+    },
+    "backlog": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/backlogItem" }
+    },
+    "agentStatus": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/agentStatus" },
+      "uniqueItems": true
+    },
+    "openEscalations": {
+      "type": "array",
+      "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/escalationId" },
+      "uniqueItems": true
+    },
+    "humanQueue": {
+      "description": "Work only the founder can do: art, audio, playtests, store setup. Kept in the same snapshot so it is visible rather than implicit.",
+      "type": "array",
+      "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+    }
+  },
+  "$defs": {
+    "backlogItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "level", "status", "priority"],
+      "properties": {
+        "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+        "title": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+        "level": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/decisionLevel" },
+        "status": {
+          "type": "string",
+          "enum": ["queued", "dispatched", "in_progress", "gate_pending", "blocked", "escalated", "completed", "abandoned"]
+        },
+        "priority": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "assignedTo": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
+        "blockedBy": {
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+          "uniqueItems": true
+        }
+      },
+      "allOf": [
+        {
+          "description": "Anything past the queue has an owner.",
+          "if": {
+            "properties": { "status": { "enum": ["dispatched", "in_progress", "gate_pending"] } },
+            "required": ["status"]
+          },
+          "then": { "required": ["assignedTo"] }
+        }
+      ]
+    },
+
+    "agentStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent", "state"],
+      "properties": {
+        "agent": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
+        "state": {
+          "type": "string",
+          "enum": ["idle", "working", "blocked", "paused", "not_yet_created"]
+        },
+        "currentTaskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+        "lastHeartbeatAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+        "spentThisPeriodUsd": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/usd" }
+      },
+      "allOf": [
+        {
+          "description": "A working agent must say what it is working on.",
+          "if": {
+            "properties": { "state": { "const": "working" } },
+            "required": ["state"]
+          },
+          "then": { "required": ["currentTaskId"] }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/event.schema.json",
+  "title": "Event envelope",
+  "description": "One entry in the append-only studio log. Every state change in the kernel emits one, so the founder can reconstruct what happened overnight from a single ordered file rather than from agent prose.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "seq", "at", "type", "actor"],
+  "properties": {
+    "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/eventId" },
+    "seq": {
+      "description": "Monotonic within the log. Gaps mean something was lost; duplicates mean something was replayed.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "at": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "type": {
+      "type": "string",
+      "enum": [
+        "task.dispatched",
+        "task.started",
+        "task.result_submitted",
+        "task.completed",
+        "task.abandoned",
+        "gate.evaluated",
+        "decision.recorded",
+        "evidence.recorded",
+        "escalation.raised",
+        "escalation.resolved",
+        "escalation.default_applied",
+        "permission.denied",
+        "failure.recorded",
+        "failure.budget_exhausted",
+        "memory.written",
+        "memory.compacted",
+        "cost.threshold_crossed",
+        "cost.hard_stop"
+      ]
+    },
+    "actor": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId" },
+    "subject": {
+      "description": "What the event is about. Exactly one identifier, matching the event type's domain.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "taskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+        "gate": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/gateId" },
+        "decisionId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/decisionId" },
+        "evidenceId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/evidenceId" },
+        "escalationId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/escalationId" },
+        "failureId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/failureId" },
+        "budgetId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/budgetId" },
+        "memoryLayer": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/memoryLayer" },
+        "path": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlob" }
+      },
+      "minProperties": 1
+    },
+    "summary": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+    "payload": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "description": "Gate events must name the gate they evaluated.",
+      "if": {
+        "properties": { "type": { "const": "gate.evaluated" } },
+        "required": ["type"]
+      },
+      "then": {
+        "required": ["subject"],
+        "properties": {
+          "subject": { "required": ["gate", "taskId"] }
+        }
+      }
+    },
+    {
+      "description": "A denial is only useful if it records which path was refused.",
+      "if": {
+        "properties": { "type": { "const": "permission.denied" } },
+        "required": ["type"]
+      },
+      "then": {
+        "required": ["subject"],
+        "properties": {
+          "subject": { "required": ["path"] }
+        }
+      }
+    }
+  ]
+}

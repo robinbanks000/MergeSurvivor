@@ -1,0 +1,16 @@
+{
+  "id": "ADR-0001",
+  "title": "The game is a pure C# library; Unity is a rendering shell",
+  "status": "accepted",
+  "level": "L1",
+  "reversible": true,
+  "proposedBy": "orchestrator",
+  "proposedAt": "2026-08-27T00:00:00Z",
+  "ratifiedBy": "human",
+  "decidedAt": "2026-08-27T00:00:00Z",
+  "autoDefaultAllowed": true,
+  "context": "Agents cannot open the Unity editor and cannot verify work that only compiles inside it. A multi-agent system without verification is parallel hallucination, so the binding constraint on autonomy is how much of the game can be checked without Unity.",
+  "decision": "Gameplay logic lives in Assets/Core as plain C# with no UnityEngine dependency, taking dt as a parameter and drawing all randomness from a seeded IRng. Assets/Unity holds only MonoBehaviour adapters. Enforced by noEngineReferences in the Core asmdef and by check-core-purity.sh in CI.",
+  "consequences": "Roughly three quarters of the game is testable in milliseconds with no Unity licence, runs are reproducible from a seed, and headless balance simulation becomes possible. The cost is an adapter layer and the discipline of keeping logic out of MonoBehaviours.",
+  "documentPath": "AI_STUDIO_ARCHITECTURE.md"
+}

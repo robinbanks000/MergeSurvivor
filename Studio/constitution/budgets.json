@@ -1,0 +1,64 @@
+{
+  "kind": "budget-registry",
+  "version": 1,
+  "updatedAt": "2026-08-27T00:00:00Z",
+  "budgets": [
+    {
+      "id": "BUD-0001",
+      "scope": "studio",
+      "periodDays": 30,
+      "softWarnUsd": 150,
+      "hardStopUsd": 300,
+      "onHardStop": "pause",
+      "maxConcurrentTasks": 3,
+      "note": "The whole studio. A solo founder cannot watch the meter overnight, so the ceiling is enforced rather than advisory. Pause keeps in-flight work recoverable."
+    },
+    {
+      "id": "BUD-0002",
+      "scope": "agent",
+      "agent": "orchestrator",
+      "periodDays": 30,
+      "softWarnUsd": 20,
+      "hardStopUsd": 40,
+      "onHardStop": "pause",
+      "note": "Routing and gating should be cheap. A high orchestrator spend means it is doing work that belongs to a specialist."
+    },
+    {
+      "id": "BUD-0003",
+      "scope": "agent",
+      "agent": "design-architect",
+      "periodDays": 30,
+      "softWarnUsd": 30,
+      "hardStopUsd": 60,
+      "onHardStop": "pause"
+    },
+    {
+      "id": "BUD-0004",
+      "scope": "agent",
+      "agent": "gameplay-engineer",
+      "periodDays": 30,
+      "softWarnUsd": 50,
+      "hardStopUsd": 100,
+      "onHardStop": "pause"
+    },
+    {
+      "id": "BUD-0005",
+      "scope": "agent",
+      "agent": "qa-adversary",
+      "periodDays": 30,
+      "softWarnUsd": 30,
+      "hardStopUsd": 60,
+      "onHardStop": "pause"
+    },
+    {
+      "id": "BUD-0006",
+      "scope": "agent",
+      "agent": "balance-simulator",
+      "periodDays": 30,
+      "softWarnUsd": 40,
+      "hardStopUsd": 80,
+      "onHardStop": "pause",
+      "note": "Runs unattended overnight, which is exactly why it needs a hard ceiling."
+    }
+  ]
+}

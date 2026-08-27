@@ -1,0 +1,15 @@
+{
+  "kind": "work-order",
+  "id": "WO-0144",
+  "agent": "gameplay-engineer",
+  "level": "L3",
+  "goal": "Add a dash ability",
+  "rationale": "ADR-0001",
+  "acceptanceCriteria": ["Dash has a cooldown"],
+  "acceptanceCriteriaAuthor": "design-architect",
+  "writeScope": ["Assets/Core/Player/**"],
+  "evidenceRequired": ["T1"],
+  "retryBudget": 3,
+  "createdAt": "2026-08-27T09:00:00Z",
+  "status": "completed"
+}

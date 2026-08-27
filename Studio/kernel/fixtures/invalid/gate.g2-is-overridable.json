@@ -1,0 +1,11 @@
+{
+  "kind": "gate-verdict",
+  "gate": "G2",
+  "taskId": "WO-0142",
+  "verdict": "overridden",
+  "evaluatedAt": "2026-08-27T10:20:00Z",
+  "evaluatedBy": "human",
+  "evidence": ["EVD-0001"],
+  "overrideJustification": "Shipping deadline",
+  "overrideDecisionId": "ADR-0003"
+}

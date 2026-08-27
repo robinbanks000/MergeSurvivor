@@ -1,0 +1,22 @@
+{
+  "kind": "work-order",
+  "id": "WO-0142",
+  "agent": "gameplay-engineer",
+  "level": "L3",
+  "goal": "Implement merging of two weapons of the same tier",
+  "rationale": "ADR-0001; PILLARS.md#merge-is-the-core-verb",
+  "inputs": ["GameDesign/features/merge-v2.md", "Assets/Core/Merge/**"],
+  "acceptanceCriteria": [
+    "Merging two weapons of equal tier yields tier+1 and consumes both inputs",
+    "Merging above MAX_TIER returns a failure result and mutates no state",
+    "Core test coverage of Assets/Core/Merge is at least 90 percent"
+  ],
+  "acceptanceCriteriaAuthor": "design-architect",
+  "writeScope": ["Assets/Core/Merge/**", "Assets/Tests/Core.Tests/Merge/**"],
+  "evidenceRequired": ["T0", "T1"],
+  "retryBudget": 3,
+  "escalateIf": ["requires a change under Assets/Unity", "requires a new third-party dependency"],
+  "budgetId": "BUD-0004",
+  "createdAt": "2026-08-27T09:00:00Z",
+  "status": "dispatched"
+}
