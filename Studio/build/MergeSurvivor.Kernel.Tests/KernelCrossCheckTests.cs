@@ -75,6 +75,71 @@ namespace MergeSurvivor.Kernel.Tests
         }
 
         [Test]
+        public void NoTwoLiveRecordsShareAnIdentifier()
+        {
+            // Records are addressed by id across the whole studio — a challenge cites a
+            // proposal, an escalation cites a decision — so a duplicate id silently points
+            // two references at different documents. Each record validates fine on its own,
+            // which is exactly why nothing caught the first collision: the engineering
+            // director filed a real PRO-0001 while a fixture already claimed that id.
+            //
+            // Fixtures use a reserved 9xxx range so they can never collide with live work.
+            string[] dirs = { "state/proposals", "state/challenges", "state/escalations", "state/reports", "decisions" };
+            var seen = new Dictionary<string, string>();
+
+            foreach (string sub in dirs)
+            {
+                string dir = Path.Combine(Kernel.RepoRoot, "Studio", sub.Replace('/', Path.DirectorySeparatorChar));
+                if (!Directory.Exists(dir))
+                {
+                    continue;
+                }
+
+                foreach (string file in Directory.GetFiles(dir, "*.json"))
+                {
+                    JsonNode doc = Kernel.ReadJson(file);
+                    if (doc["id"] == null)
+                    {
+                        continue;
+                    }
+
+                    string id = doc["id"].GetValue<string>();
+                    string relative = Path.GetRelativePath(Kernel.RepoRoot, file);
+
+                    Assert.That(seen.ContainsKey(id), Is.False,
+                        $"{relative} and {(seen.TryGetValue(id, out string other) ? other : "?")} both claim id '{id}'. Every cross-reference to it is now ambiguous.");
+
+                    seen[id] = relative;
+                }
+            }
+        }
+
+        [Test]
+        public void FixtureIdentifiersStayOutOfTheLiveRange()
+        {
+            // Keeps the collision above from recurring: an example record must never be
+            // addressable by the same id as real work.
+            foreach (string file in Kernel.FixtureFiles("valid"))
+            {
+                JsonNode doc = Kernel.ReadJson(file);
+                if (doc is not JsonObject obj || !obj.ContainsKey("id"))
+                {
+                    continue;
+                }
+
+                string id = doc["id"].GetValue<string>();
+                if (!id.StartsWith("PRO-", StringComparison.Ordinal) &&
+                    !id.StartsWith("CHA-", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                Assert.That(id, Does.Match(@"^(PRO|CHA)-9\d{3}$"),
+                    $"{Path.GetFileName(file)} uses live-range id '{id}'. Fixtures use the reserved 9xxx range.");
+            }
+        }
+
+        [Test]
         public void EscalationsPointAtDecisionsThatExist()
         {
             string dir = Path.Combine(Kernel.RepoRoot, "Studio", "state", "escalations");

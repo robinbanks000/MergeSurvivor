@@ -1,12 +1,15 @@
 {
-  "id": "CHA-0001",
+  "id": "CHA-9001",
   "raisedBy": "property-fuzz-engineer",
   "against": "core-simulation-engineer",
   "adjudicator": "qa-director",
   "raisedAt": "2026-08-27T11:30:00Z",
   "taskId": "WO-0142",
   "claim": "The determinism invariant is stated for all dt but the implementation silently rewinds on negative dt rather than rejecting it.",
-  "evidence": ["Seed 8817441", "EVD-0002"],
+  "evidence": [
+    "Seed 8817441",
+    "EVD-0002"
+  ],
   "response": "Negative dt was considered impossible in practice and left unguarded.",
   "status": "upheld",
   "ruling": "The invariant as written covers all dt. Guard the input and state the precondition explicitly rather than narrowing the invariant.",

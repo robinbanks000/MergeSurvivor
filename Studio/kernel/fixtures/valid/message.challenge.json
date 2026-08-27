@@ -6,6 +6,6 @@
   "route": "challenge-via-boss",
   "intent": "challenge",
   "subject": "core-simulation-engineer",
-  "challengeId": "CHA-0001",
+  "challengeId": "CHA-9001",
   "body": "The stated determinism invariant does not hold for negative dt; the tick silently rewinds instead of rejecting the input."
 }
