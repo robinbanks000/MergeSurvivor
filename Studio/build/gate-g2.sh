@@ -24,8 +24,17 @@ echo "=== T0: forbidden remedies ==="
 
 echo
 echo "=== T0: write scope ==="
-# Reports SKIP until a work order supplies --agent. Becomes blocking in Phase 3.
-./Studio/build/check-write-scope.sh ${WORK_ORDER_AGENT:+--agent "$WORK_ORDER_AGENT"}
+# Reports SKIP until a work order supplies --agent.
+#
+# The base ref matters and defaults differently by caller. In CI the question is
+# "what does this whole branch change against main", so the script's own default
+# is right. For a single agent's step the question is "what did this agent just
+# change", and diffing against main would flag every file the branch has touched
+# since it forked — 146 of them on this branch, none of them the agent's. So a
+# per-agent check defaults to HEAD unless the caller says otherwise.
+./Studio/build/check-write-scope.sh \
+  ${WORK_ORDER_AGENT:+--agent "$WORK_ORDER_AGENT"} \
+  ${WORK_ORDER_AGENT:+${WORK_ORDER_BASE:-HEAD}}
 
 echo
 echo "=== T0: agent definitions match the registry ==="
