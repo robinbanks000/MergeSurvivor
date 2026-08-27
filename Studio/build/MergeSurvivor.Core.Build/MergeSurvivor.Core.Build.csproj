@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Compiles the exact same source files that Unity compiles via
+    Assets/Core/MergeSurvivor.Core.asmdef, but with the plain dotnet toolchain.
+    That is what lets the code gate (G2) run in seconds with no Unity licence.
+
+    The project is named *.Core.Build rather than *.Core on purpose: Unity
+    regenerates a MergeSurvivor.Core.csproj at the repo root from the asmdef,
+    and two projects with the same name would collide.
+  -->
+
+  <PropertyGroup>
+    <!-- netstandard2.1 is the API surface Unity 6 compiles against, so anything
+         that builds here is guaranteed to build in the editor too. -->
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <AssemblyName>MergeSurvivor.Core</AssemblyName>
+    <RootNamespace>MergeSurvivor.Core</RootNamespace>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../Assets/Core/**/*.cs" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Runs the tests in Assets/Tests/Core.Tests with `dotnet test`. The very same
+    files are also picked up by the Unity Test Framework through that folder's
+    asmdef, so a Core test is written once and runs in both places.
+
+    NUnit is pinned to 3.x because that is what Unity ships. Tests use the
+    constraint model (Assert.That(x, Is.EqualTo(y))) which is identical in
+    NUnit 3 and 4, so the suite stays portable if Unity ever moves.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../Assets/Tests/Core.Tests/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../MergeSurvivor.Core.Build/MergeSurvivor.Core.Build.csproj" />
+  </ItemGroup>
+
+</Project>

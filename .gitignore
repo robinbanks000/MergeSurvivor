@@ -1,0 +1,49 @@
+# ---- Unity generated ----
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+# Anchored to the repo root on purpose. Unity's stock .gitignore leaves these
+# unanchored, which would also swallow Studio/build/ — the dotnet projects and
+# gate scripts that let CI verify Core without a Unity licence.
+/[Bb]uild/
+/[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# Asset meta data for files that no longer exist
+!/[Aa]ssets/**/*.meta
+
+# Unity3D generated
+*.pidb
+*.booproj
+*.svd
+*.pdb.meta
+*.mdb.meta
+sysinfo.txt
+*.unitypackage
+*.app
+crashlytics-build.properties
+
+# ---- IDE / solution files ----
+# Only ignore Unity-generated project files at the repo root.
+# The hand-written dotnet projects under Studio/build/ MUST stay tracked,
+# because they are what lets CI run the Core tests without a Unity license.
+/*.csproj
+/*.sln
+/*.unityproj
+/*.sln.DotSettings.user
+.vs/
+.idea/
+.vscode/
+*.userprefs
+
+# ---- dotnet build output (Studio/build) ----
+Studio/build/**/bin/
+Studio/build/**/obj/
+Studio/build/**/TestResults/
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
