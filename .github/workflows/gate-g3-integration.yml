@@ -131,8 +131,14 @@ jobs:
           # it against.
           coverageEnabled: false
 
-      - uses: actions/upload-artifact@v4
-        if: always()
+      # Guarded on the runner having actually started. With a bare `always()` this
+      # step fires even when the credentials check aborted the job, and then
+      # artifactsPath is an empty string — which upload-artifact rejects with
+      # "Input required and not supplied: path", burying a second red error under
+      # the real one.
+      - name: Upload test results
+        if: always() && steps.run.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
         with:
           name: g3-${{ matrix.testMode }}-results
           path: ${{ steps.run.outputs.artifactsPath }}
@@ -142,34 +148,46 @@ jobs:
       # gates.json declaring it blocking and claiming a T2 tier. A blocking gate
       # that leaves no record is a gate nothing downstream can reason about.
       - name: Record evidence
+        id: evidence
         if: always()
         run: |
+          # github.ref_name is "1/merge" on a pull_request event, which names no
+          # branch anyone can check out. head_ref is the branch under test.
+          BRANCH="${{ github.head_ref || github.ref_name }}"
+
           if [ "${{ steps.creds.outcome }}" != "success" ]; then
             # Not "fail": the Unity layer was not tested and found wanting, it was
             # not tested at all. The schema has a word for that and it is not pass.
             VERDICT=inconclusive
-            SUMMARY="G3 ${{ matrix.testMode }} did not run on ${{ github.ref_name }} (run ${{ github.run_number }}): Unity credentials are not configured"
+            SUMMARY="G3 ${{ matrix.testMode }} did not run on $BRANCH (run ${{ github.run_number }}): Unity credentials are not configured"
           elif [ "${{ job.status }}" = "success" ]; then
             VERDICT=pass
-            SUMMARY="G3 ${{ matrix.testMode }} passed on ${{ github.ref_name }} (run ${{ github.run_number }})"
+            SUMMARY="G3 ${{ matrix.testMode }} passed on $BRANCH (run ${{ github.run_number }})"
           else
             VERDICT=fail
-            SUMMARY="G3 ${{ matrix.testMode }} failed on ${{ github.ref_name }} (run ${{ github.run_number }})"
+            SUMMARY="G3 ${{ matrix.testMode }} failed on $BRANCH (run ${{ github.run_number }})"
           fi
 
-          ./Studio/build/emit-evidence.sh \
+          # The script prints the path it wrote. Capture it, because uploading the
+          # EVD-*.json glob instead sweeps up every record already committed to the
+          # repository — the first run of this shipped an artifact holding four
+          # records with no way to tell which one the run produced.
+          RECORD="$(./Studio/build/emit-evidence.sh \
             --tier T2 \
             --verdict "$VERDICT" \
             --by integration-test-engineer \
             --dir tests \
-            --summary "$SUMMARY"
+            --summary "$SUMMARY")"
+
+          echo "record=$RECORD" >> "$GITHUB_OUTPUT"
+          cat "$RECORD"
 
       # Uploaded rather than committed, for the same reason as G2: CI writing to
       # the repository would be an unattended actor mutating kernel state.
       - name: Upload evidence
-        if: always()
+        if: always() && steps.evidence.outputs.record != ''
         uses: actions/upload-artifact@v4
         with:
           name: g3-evidence-${{ matrix.testMode }}-${{ github.run_number }}
-          path: Studio/evidence/tests/EVD-*.json
+          path: ${{ steps.evidence.outputs.record }}
           if-no-files-found: warn
