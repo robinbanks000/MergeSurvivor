@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using MergeSurvivor.Core.Rng;
 using MergeSurvivor.Core.Spawning;
@@ -11,6 +12,73 @@ namespace MergeSurvivor.Core.Tests
     {
         private static WaveScheduler Scheduler(float firstDelay = 1f, float interval = 2f, float halfWidth = 8f, uint seed = 1u)
             => new WaveScheduler(new XorShiftRng(seed), firstDelay, interval, halfWidth);
+
+        /// <summary>
+        /// Thrown by <see cref="BoundedSpawnRequestBuffer"/> once its cap is exceeded.
+        /// Distinct from ArgumentOutOfRangeException so a test asserting
+        /// Assert.Throws&lt;ArgumentOutOfRangeException&gt; fails with a clear "wrong
+        /// exception type" mismatch -- fast and deterministic -- rather than hanging,
+        /// against a Tick implementation whose guard lets a non-finite dt reach the
+        /// spawn loop.
+        /// </summary>
+        private sealed class BoundedBufferCapacityExceededException : Exception
+        {
+            public BoundedBufferCapacityExceededException(string message) : base(message)
+            {
+            }
+        }
+
+        /// <summary>
+        /// A test-local IList&lt;SpawnRequest&gt; that throws
+        /// <see cref="BoundedBufferCapacityExceededException"/> from Add once it holds
+        /// more than <see cref="Cap"/> items, so a test driving WaveScheduler.Tick with
+        /// a non-finite dt fails fast against a non-terminating spawn loop instead of
+        /// hanging the test run or exhausting memory.
+        /// </summary>
+        private sealed class BoundedSpawnRequestBuffer : IList<SpawnRequest>
+        {
+            private const int Cap = 1000;
+            private readonly List<SpawnRequest> _inner = new List<SpawnRequest>();
+
+            public SpawnRequest this[int index]
+            {
+                get => _inner[index];
+                set => _inner[index] = value;
+            }
+
+            public int Count => _inner.Count;
+
+            public bool IsReadOnly => false;
+
+            public void Add(SpawnRequest item)
+            {
+                if (_inner.Count >= Cap)
+                {
+                    throw new BoundedBufferCapacityExceededException(
+                        $"Bounded test buffer exceeded its cap of {Cap} items without the spawn loop terminating.");
+                }
+
+                _inner.Add(item);
+            }
+
+            public void Clear() => _inner.Clear();
+
+            public bool Contains(SpawnRequest item) => _inner.Contains(item);
+
+            public void CopyTo(SpawnRequest[] array, int arrayIndex) => _inner.CopyTo(array, arrayIndex);
+
+            public IEnumerator<SpawnRequest> GetEnumerator() => _inner.GetEnumerator();
+
+            public int IndexOf(SpawnRequest item) => _inner.IndexOf(item);
+
+            public void Insert(int index, SpawnRequest item) => _inner.Insert(index, item);
+
+            public bool Remove(SpawnRequest item) => _inner.Remove(item);
+
+            public void RemoveAt(int index) => _inner.RemoveAt(index);
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
 
         [Test]
         public void NoSpawnsBeforeTheFirstDelayElapses()
@@ -124,6 +192,96 @@ namespace MergeSurvivor.Core.Tests
             var scheduler = Scheduler();
 
             Assert.Throws<ArgumentNullException>(() => scheduler.Tick(1f, null));
+        }
+
+        [Test]
+        public void RejectsNaNDeltaTime()
+        {
+            // The specification requires dt to be a finite number >= 0. NaN is not
+            // finite, so Tick must reject it and append nothing to the buffer.
+            var scheduler = Scheduler();
+            var buffer = new List<SpawnRequest>();
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => scheduler.Tick(float.NaN, buffer));
+
+            Assert.That(buffer, Is.Empty);
+        }
+
+        [Test]
+        public void NaNDeltaTimeDoesNotAffectSubsequentSpawns()
+        {
+            // The specification requires a rejected Tick call to leave the scheduler's
+            // internal schedule exactly as it was, so a later valid Tick must spawn
+            // exactly as if the NaN call had never happened.
+            var untouched = Scheduler(firstDelay: 1f, interval: 2f);
+            var exercised = Scheduler(firstDelay: 1f, interval: 2f);
+            var untouchedBuffer = new List<SpawnRequest>();
+            var exercisedBuffer = new List<SpawnRequest>();
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => exercised.Tick(float.NaN, exercisedBuffer));
+            Assert.That(exercisedBuffer, Is.Empty);
+
+            untouched.Tick(5f, untouchedBuffer);
+            exercised.Tick(5f, exercisedBuffer);
+
+            Assert.That(exercisedBuffer.Count, Is.EqualTo(untouchedBuffer.Count));
+        }
+
+        [Test]
+        public void PositiveInfinityDeltaTimeThrowsInsteadOfLoopingForever()
+        {
+            // The specification requires dt to be a finite number >= 0, rejected before
+            // the spawn loop is ever entered, so dt = +Infinity must never reach
+            // `while (_timeUntilNextSpawn <= 0f)`. Against the unmodified guard
+            // (`dt < 0f`), +Infinity passes, `_timeUntilNextSpawn -= dt` becomes
+            // -Infinity, and the loop never terminates because -Infinity plus any
+            // finite interval is still -Infinity; against that pre-fix code this test
+            // fails fast with BoundedBufferCapacityExceededException (message: "Bounded
+            // test buffer exceeded its cap of 1000 items without the spawn loop
+            // terminating."), not ArgumentOutOfRangeException and not a hang, because
+            // the bounded buffer throws once the loop runs past 1000 iterations.
+            var scheduler = Scheduler();
+            var buffer = new BoundedSpawnRequestBuffer();
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => scheduler.Tick(float.PositiveInfinity, buffer));
+
+            Assert.That(buffer.Count, Is.Zero);
+        }
+
+        [Test]
+        public void PositiveInfinityDeltaTimeDoesNotAffectSubsequentSpawns()
+        {
+            // The specification requires a rejected Tick call to leave the scheduler's
+            // internal schedule exactly as it was, so a later valid Tick must spawn
+            // exactly as if the PositiveInfinity call had never happened. The bounded
+            // buffer is used for the throwing call only, so this test cannot hang even
+            // if the guard regresses.
+            var untouched = Scheduler(firstDelay: 1f, interval: 2f);
+            var exercised = Scheduler(firstDelay: 1f, interval: 2f);
+            var untouchedBuffer = new List<SpawnRequest>();
+            var exercisedBuffer = new List<SpawnRequest>();
+            var boundedBuffer = new BoundedSpawnRequestBuffer();
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => exercised.Tick(float.PositiveInfinity, boundedBuffer));
+            Assert.That(boundedBuffer.Count, Is.Zero);
+
+            untouched.Tick(5f, untouchedBuffer);
+            exercised.Tick(5f, exercisedBuffer);
+
+            Assert.That(exercisedBuffer.Count, Is.EqualTo(untouchedBuffer.Count));
+        }
+
+        [Test]
+        public void RejectsNegativeInfinityDeltaTime()
+        {
+            // Already throws pre-fix via the old `dt < 0f` guard; this is not a
+            // verdict-changing case, but the corrected guard must keep rejecting it.
+            var scheduler = Scheduler();
+            var buffer = new List<SpawnRequest>();
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => scheduler.Tick(float.NegativeInfinity, buffer));
+
+            Assert.That(buffer, Is.Empty);
         }
     }
 }

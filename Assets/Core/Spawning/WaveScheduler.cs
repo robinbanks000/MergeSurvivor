@@ -57,10 +57,7 @@ namespace MergeSurvivor.Core.Spawning
         /// <returns>How many requests were appended.</returns>
         public int Tick(float dt, IList<SpawnRequest> into)
         {
-            if (dt < 0f)
-            {
-                throw new ArgumentOutOfRangeException(nameof(dt), dt, "dt must be >= 0.");
-            }
+            MergeSurvivor.Core.DtGuard.RequireFiniteNonNegative(dt, nameof(dt));
 
             if (into == null)
             {

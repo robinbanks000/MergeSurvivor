@@ -109,5 +109,76 @@ namespace MergeSurvivor.Core.Tests
 
             Assert.That(motor.PositionX, Is.EqualTo(8f).Within(1e-4f));
         }
+
+        [Test]
+        public void RejectsNaNDeltaTime()
+        {
+            // The specification requires dt to be a finite number >= 0. NaN is not
+            // finite, so Tick must reject it and leave PositionX and FireCooldown
+            // exactly as they were before the call.
+            var motor = Motor();
+            float positionBefore = motor.PositionX;
+            float cooldownBefore = motor.FireCooldown;
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => motor.Tick(float.NaN, 1f));
+
+            Assert.That(motor.PositionX, Is.EqualTo(positionBefore));
+            Assert.That(motor.FireCooldown, Is.EqualTo(cooldownBefore));
+        }
+
+        [Test]
+        public void NaNDeltaTimeDoesNotPermanentlyBreakFireRate()
+        {
+            // The specification requires a rejected Tick call to leave FireCooldown
+            // exactly as it was, so TryFire must keep respecting whatever cooldown was
+            // already in effect rather than firing on every call from then on.
+            var motor = Motor();
+            Assert.That(motor.TryFire(2f), Is.True); // 2 shots/sec => 0.5s cooldown
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => motor.Tick(float.NaN, 0f));
+
+            Assert.That(motor.TryFire(2f), Is.False,
+                "the cooldown in effect before the rejected Tick call must still apply");
+        }
+
+        [Test]
+        public void RejectsPositiveInfinityDeltaTime()
+        {
+            // The specification requires dt to be a finite number >= 0.
+            // float.PositiveInfinity is not finite, so Tick must reject it and leave
+            // PositionX and FireCooldown exactly as they were before the call.
+            var motor = Motor();
+            float positionBefore = motor.PositionX;
+            float cooldownBefore = motor.FireCooldown;
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => motor.Tick(float.PositiveInfinity, 1f));
+
+            Assert.That(motor.PositionX, Is.EqualTo(positionBefore));
+            Assert.That(motor.FireCooldown, Is.EqualTo(cooldownBefore));
+        }
+
+        [Test]
+        public void PositiveInfinityDeltaTimeDoesNotPermanentlyBreakFireRate()
+        {
+            // Same unchanged-state and cooldown-respecting guarantee as the NaN case,
+            // for float.PositiveInfinity.
+            var motor = Motor();
+            Assert.That(motor.TryFire(2f), Is.True); // 2 shots/sec => 0.5s cooldown
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => motor.Tick(float.PositiveInfinity, 0f));
+
+            Assert.That(motor.TryFire(2f), Is.False,
+                "the cooldown in effect before the rejected Tick call must still apply");
+        }
+
+        [Test]
+        public void RejectsNegativeInfinityDeltaTime()
+        {
+            // Already throws pre-fix via the old `dt < 0f` guard; this is not a
+            // verdict-changing case, but the corrected guard must keep rejecting it.
+            var motor = Motor();
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => motor.Tick(float.NegativeInfinity, 0f));
+        }
     }
 }

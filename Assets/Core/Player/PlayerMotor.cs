@@ -41,10 +41,7 @@ namespace MergeSurvivor.Core.Player
         /// <param name="moveAxis">-1 to 1. Values outside that range are clamped.</param>
         public void Tick(float dt, float moveAxis)
         {
-            if (dt < 0f)
-            {
-                throw new ArgumentOutOfRangeException(nameof(dt), dt, "dt must be >= 0.");
-            }
+            MergeSurvivor.Core.DtGuard.RequireFiniteNonNegative(dt, nameof(dt));
 
             if (moveAxis > 1f)
             {
