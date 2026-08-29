@@ -67,9 +67,9 @@ namespace MergeSurvivor.Core.Run
         /// </summary>
         public void Tick(float dt)
         {
-            if (dt < 0f)
+            if (!float.IsFinite(dt) || dt < 0f)
             {
-                throw new ArgumentOutOfRangeException(nameof(dt), dt, "dt must be >= 0.");
+                throw new ArgumentOutOfRangeException(nameof(dt), dt, "dt must be a finite number >= 0.");
             }
 
             if (IsOver)

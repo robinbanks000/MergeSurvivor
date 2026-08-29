@@ -122,33 +122,92 @@ namespace MergeSurvivor.Core.Tests
         }
 
         [Test]
-        public void Criterion3_PositiveInfinityDtIncrements()
+        public void Criterion3_PositiveInfinityDtThrowsAndLeavesStateUnchanged()
         {
+            // The specification requires dt to be a finite, non-negative number.
+            // float.PositiveInfinity is not finite, so Tick must reject it and
+            // leave TickCount and ElapsedSeconds exactly as they were.
             var run = new RunState();
-            run.Tick(float.PositiveInfinity);
-            Assert.That(run.TickCount, Is.EqualTo(1), "Tick with float.PositiveInfinity dt must increment");
+            var tickCountBefore = run.TickCount;
+            var elapsedBefore = run.ElapsedSeconds;
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => run.Tick(float.PositiveInfinity));
+
+            Assert.That(run.TickCount, Is.EqualTo(tickCountBefore),
+                "Tick with float.PositiveInfinity dt must not increment TickCount");
+            Assert.That(run.ElapsedSeconds, Is.EqualTo(elapsedBefore),
+                "Tick with float.PositiveInfinity dt must not change ElapsedSeconds");
         }
 
         [Test]
-        public void Criterion3_NaNDtIncrements()
+        public void Criterion3_NaNDtThrowsAndLeavesStateUnchanged()
         {
-            // NaN comparison "< 0" is always false, so NaN passes the dt < 0 check
+            // The specification requires dt to be a finite, non-negative number.
+            // float.NaN is not finite, so Tick must reject it and leave TickCount
+            // and ElapsedSeconds exactly as they were.
             var run = new RunState();
-            run.Tick(float.NaN);
-            Assert.That(run.TickCount, Is.EqualTo(1), "Tick with float.NaN dt must increment (NaN < 0 is false)");
+            var tickCountBefore = run.TickCount;
+            var elapsedBefore = run.ElapsedSeconds;
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => run.Tick(float.NaN));
+
+            Assert.That(run.TickCount, Is.EqualTo(tickCountBefore),
+                "Tick with float.NaN dt must not increment TickCount");
+            Assert.That(run.ElapsedSeconds, Is.EqualTo(elapsedBefore),
+                "Tick with float.NaN dt must not change ElapsedSeconds");
+        }
+
+        // ============================================================================
+        // Regression: a non-finite dt must never reach ElapsedSeconds. Tick(dt) is
+        // specified to reject any dt for which dt >= 0f does not hold, or which is
+        // an infinity; a caller that catches the resulting exception must find
+        // ElapsedSeconds exactly as it was before the call.
+        // ============================================================================
+
+        [Test]
+        public void Regression_NaNDtLeavesElapsedSecondsFiniteAndUnchanged()
+        {
+            var run = new RunState();
+
+            try
+            {
+                run.Tick(float.NaN);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                // Expected: the specification requires Tick to reject this dt.
+            }
+
+            Assert.That(float.IsFinite(run.ElapsedSeconds), Is.True,
+                "ElapsedSeconds must remain finite after a rejected Tick call");
+            Assert.That(run.ElapsedSeconds, Is.EqualTo(0f),
+                "ElapsedSeconds must be unchanged from its pre-call value after a rejected Tick call");
         }
 
         [Test]
         public void Criterion3_ManyTicksWithVariedDt()
         {
             var run = new RunState();
-            float[] dtValues = { 0f, 0.1f, 1000f, float.MaxValue, float.PositiveInfinity, float.NaN };
+            float[] dtValues = { 0f, 0.1f, 1000f, float.MaxValue };
             foreach (float dt in dtValues)
             {
                 run.Tick(dt);
             }
             Assert.That(run.TickCount, Is.EqualTo(dtValues.Length),
-                "TickCount must increment for every Tick call regardless of dt value");
+                "TickCount must increment for every Tick call with a finite, non-negative dt");
+        }
+
+        [Test]
+        public void Criterion3_ManyTicksWithVariedDt_NonFiniteEntriesThrowAndDoNotIncrement()
+        {
+            var run = new RunState();
+            float[] nonFiniteDtValues = { float.PositiveInfinity, float.NaN };
+            foreach (float dt in nonFiniteDtValues)
+            {
+                Assert.Throws<ArgumentOutOfRangeException>(() => run.Tick(dt));
+            }
+            Assert.That(run.TickCount, Is.EqualTo(0),
+                "TickCount must not increment for any non-finite dt");
         }
 
         // ============================================================================
