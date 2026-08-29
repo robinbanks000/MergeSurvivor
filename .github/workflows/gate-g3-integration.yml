@@ -123,13 +123,21 @@ jobs:
           artifactsPath: ${{ matrix.testMode }}-results
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           checkName: G3 ${{ matrix.testMode }} results
-          # The action defaults this to true, which asks Unity to load
-          # com.unity.testtools.codecoverage. That package is not in
-          # Packages/manifest.json and no gate consumes a coverage number yet, so
-          # leaving it on is a failure mode in exchange for nothing. Turn it back
-          # on in the same change that adds the package and a threshold to judge
-          # it against.
-          coverageEnabled: false
+          # No coverageEnabled input here on purpose. An earlier revision passed
+          # `coverageEnabled: false`, which the v4 tag does not accept -- that
+          # input exists on the action's main branch, and this file was written
+          # against main rather than against the tag it actually pins. The run
+          # answered with "Unexpected input(s) 'coverageEnabled'" and carried on
+          # with coverage enabled, so the setting did nothing while the comment
+          # beside it claimed coverage was off. A workflow that misdescribes
+          # itself is the same defect class this gate was rewritten to remove,
+          # so the input is gone rather than corrected.
+          #
+          # v4 offers no switch to disable coverage. With
+          # com.unity.testtools.codecoverage absent from Packages/manifest.json
+          # the runner prints "Coverage results directory does not exist" and
+          # exits successfully, which is harmless. Revisit if a gate ever
+          # consumes a coverage number.
 
       # Guarded on the runner having actually started. With a bare `always()` this
       # step fires even when the credentials check aborted the job, and then
