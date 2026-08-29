@@ -1,0 +1,45 @@
+{
+  "kind": "work-order",
+  "id": "WO-0008",
+  "agent": "core-simulation-engineer",
+  "level": "L3",
+  "goal": "Fix RunState.Tick so its guard actually enforces the invariant its own exception message states -- dt must be a finite, non-negative number -- closing the gap through which float.NaN and float.PositiveInfinity silently and permanently poison ElapsedSeconds while TickCount keeps counting correctly.",
+  "rationale": "Per PRO-0002 (qa-director, Studio/state/proposals/PRO-0002.json), Tick guards with `if (dt < 0f) throw`, but the exception message says \"dt must be >= 0.\" Those are different predicates: float.NaN < 0f is false and float.PositiveInfinity < 0f is false, so both pass a guard whose stated contract they violate, then reach `ElapsedSeconds += dt` (Assets/Core/Run/RunState.cs:68-82). NaN is absorbing under addition, so a single Tick(NaN) makes ElapsedSeconds permanently NaN for the rest of the run; PositiveInfinity saturates it to +Infinity the same way. Nothing throws, IsOver stays false, and TickCount keeps incrementing correctly, so the run looks healthy while its clock is meaningless -- exactly the gap WO-0007's seed-plus-tick bug coordinate cannot report, because TickCount alone reads as fine. Reuse PRO-0002's problem, evidence and proposedWork in full; this order does not re-derive that analysis.\n\nFOUNDER AUTHORISATION: the founder has explicitly authorised inverting three currently-passing assertions in Assets/Tests/Core.Tests/RunStateVerificationTests.cs that presently encode this defect as though it were a requirement: Criterion3_NaNDtIncrements, Criterion3_PositiveInfinityDtIncrements, and Criterion3_ManyTicksWithVariedDt (its non-finite dt entries specifically -- float.PositiveInfinity and float.NaN in the dtValues array). Per Studio/lessons/LESSONS.md L-002, an implementer inverting a passing assertion without explicit written authorisation is indistinguishable from one weakening a test to go green; this paragraph is that authorisation, and it is scoped to exactly these three tests and nothing else in the file. Replace them with tests asserting that Tick throws ArgumentOutOfRangeException for that dt value and leaves both TickCount and ElapsedSeconds unchanged from their pre-call values. Do not alter any other existing test's assertions.",
+  "inputs": [
+    "Studio/state/proposals/PRO-0002.json",
+    "Assets/Core/Run/RunState.cs",
+    "Assets/Tests/Core.Tests/RunStateVerificationTests.cs",
+    "Assets/Tests/Core.Tests/RunStateTests.cs",
+    "Studio/orders/open/WO-0007.json",
+    "Studio/lessons/LESSONS.md"
+  ],
+  "acceptanceCriteria": [
+    "Tick(float.NaN) throws ArgumentOutOfRangeException; it does not increment TickCount and does not change ElapsedSeconds from its pre-call value.",
+    "Tick(float.PositiveInfinity) throws ArgumentOutOfRangeException; it does not increment TickCount and does not change ElapsedSeconds from its pre-call value.",
+    "Tick(float.NegativeInfinity) throws ArgumentOutOfRangeException; it does not increment TickCount and does not change ElapsedSeconds from its pre-call value. (This case already throws today via dt < 0f; it must keep throwing under the corrected guard.)",
+    "The existing negative-dt rejection is preserved exactly: Tick(dt) for any finite dt < 0 (including at least -0.1f and -0.5f) still throws ArgumentOutOfRangeException and still does not increment TickCount.",
+    "For every finite dt >= 0 that does not throw (including 0f, small values, and float.MaxValue), Tick continues to increment TickCount by exactly 1 and add dt to ElapsedSeconds, exactly as before this fix.",
+    "After any sequence of Tick calls in which every call either throws or is a no-op due to IsOver, and every non-throwing, non-no-op call was given a finite non-negative dt, ElapsedSeconds is finite (not NaN, not PositiveInfinity, not NegativeInfinity).",
+    "A new regression test ticks float.NaN inside a try/catch (or Assert.Throws) that lets execution continue, then asserts ElapsedSeconds is finite (e.g. via float.IsFinite or an equivalent check) and equal to its pre-call value (e.g. 0f on a fresh RunState). The work order's evidence must show this exact test failing against the pre-fix code (dt < 0f guard) and passing against the post-fix code -- a regression test that never demonstrably failed does not satisfy this criterion.",
+    "Criterion3_NaNDtIncrements, Criterion3_PositiveInfinityDtIncrements, and Criterion3_ManyTicksWithVariedDt in Assets/Tests/Core.Tests/RunStateVerificationTests.cs are replaced per the founder authorisation above: the first two become tests asserting Tick throws ArgumentOutOfRangeException and leaves TickCount and ElapsedSeconds unchanged, and the third drops float.PositiveInfinity and float.NaN from its dtValues loop (or splits them into a separate throwing-case test), while its remaining finite entries still assert incrementing behaviour exactly as before. No other existing assertion in this file is altered.",
+    "Seed, Score, Kills, IsOver, AddScore, RegisterKill, EndRun and Reset semantics are byte-for-byte unchanged from their current behaviour, including that Reset still zeroes TickCount and ElapsedSeconds while leaving Seed untouched, and that AddScore's existing negative-amount rejection and message are untouched.",
+    "Assets/Core/Run/RunState.cs contains no reference to UnityEngine, and Tick continues to take dt as an explicit float parameter rather than reading any ambient clock or Time.deltaTime.",
+    "The full Assets/Tests/Core.Tests suite (all files, not only RunStateVerificationTests.cs and RunStateTests.cs) builds and passes with the corrected RunState.cs.",
+    "Assets/Core/Run/RunState.cs:68-82's guard rejects dt whenever `dt >= 0f` is false (which is true for NaN) or dt is an infinity, so the code's condition and its exception message agree on the same predicate; the exact wording of the message is left to the implementer provided it accurately states the enforced predicate."
+  ],
+  "acceptanceCriteriaAuthor": "work-order-author",
+  "writeScope": [
+    "Assets/Core/Run/**",
+    "Assets/Tests/Core.Tests/**"
+  ],
+  "evidenceRequired": ["T0", "T1"],
+  "retryBudget": 3,
+  "escalateIf": [
+    "Any assertion in Assets/Tests/Core.Tests/RunStateVerificationTests.cs or RunStateTests.cs other than the three named tests would need to change to make the suite pass, since only those three are authorised for inversion",
+    "A caller outside this task's write scope (e.g. Assets/Unity/GameManager.cs or Studio/sim/MergeSurvivor.Sim/Program.cs) is found to depend on Tick silently accepting a non-finite dt, such that rejecting it would break compilation or a documented external contract",
+    "The regression test required by the acceptance criteria cannot be made to fail against the current, unmodified RunState.cs, which would indicate the described defect is not actually reachable as specified"
+  ],
+  "budgetId": "BUD-ENG",
+  "createdAt": "2026-08-29T00:00:00Z",
+  "status": "dispatched"
+}
