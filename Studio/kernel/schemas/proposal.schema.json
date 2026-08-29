@@ -16,9 +16,15 @@
     "status"
   ],
   "properties": {
-    "id": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/proposalId" },
-    "raisedBy": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId" },
-    "raisedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "id": {
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/proposalId"
+    },
+    "raisedBy": {
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId"
+    },
+    "raisedAt": {
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp"
+    },
     "triagedBy": {
       "description": "The boss who ruled on it. Present once triage has happened.",
       "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId"
@@ -32,22 +38,36 @@
       "description": "Evidence records, file paths or seeds that substantiate the problem. A proposal with no evidence is an opinion, and the schema refuses it.",
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+      "items": {
+        "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString"
+      }
     },
     "proposedWork": {
       "description": "The concrete change proposed. Vague proposals push the thinking onto the boss, which is the opposite of what a proactive agent is for.",
       "type": "string",
       "minLength": 30
     },
-    "expectedBenefit": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+    "expectedBenefit": {
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString"
+    },
     "estimatedCost": {
       "description": "What acting on this is expected to cost, in the studio's currency. Absent means the proposer could not estimate it, which is itself worth knowing.",
       "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/amount"
     },
-    "priority": { "type": "integer", "minimum": 1, "maximum": 5 },
+    "priority": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    },
     "status": {
       "type": "string",
-      "enum": ["open", "accepted", "rejected", "parked", "withdrawn"]
+      "enum": [
+        "open",
+        "accepted",
+        "rejected",
+        "parked",
+        "withdrawn"
+      ]
     },
     "decision": {
       "description": "The boss's reasoning. Required on rejection: an agent told 'no' with no reason will simply propose it again next week.",
@@ -56,18 +76,53 @@
     "taskId": {
       "description": "The work order this became, once accepted.",
       "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId"
+    },
+    "notes": {
+      "description": "Limits and questions examined and deliberately NOT proposed as work. Added after the quality director had a durable finding -- an ElapsedSeconds precision limit reached in about 1.5 days of accumulated run time -- that belonged in the record but was not a proposal, and no field could hold it. Without somewhere to put it, such a finding is either dropped or inflated into work nobody needs.",
+      "type": "string"
     }
   },
   "allOf": [
     {
       "description": "An accepted proposal becomes a work order, or it was not really accepted.",
-      "if": { "properties": { "status": { "const": "accepted" } }, "required": ["status"] },
-      "then": { "required": ["taskId", "triagedBy"] }
+      "if": {
+        "properties": {
+          "status": {
+            "const": "accepted"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "taskId",
+          "triagedBy"
+        ]
+      }
     },
     {
       "description": "A rejection must carry its reasoning, so the same proposal does not return unchanged.",
-      "if": { "properties": { "status": { "enum": ["rejected", "parked"] } }, "required": ["status"] },
-      "then": { "required": ["decision", "triagedBy"] }
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "rejected",
+              "parked"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "decision",
+          "triagedBy"
+        ]
+      }
     }
   ]
 }

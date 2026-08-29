@@ -1,0 +1,30 @@
+{
+  "id": "RUL-9001",
+  "division": "quality",
+  "boss": "qa-director",
+  "taskId": "WO-9001",
+  "at": "2026-08-29T12:00:00Z",
+  "verdict": "adequate",
+  "proposalsRaised": [],
+  "challengesRaised": [],
+  "rulings": [
+    {
+      "matter": "whether the guard covers non-finite input",
+      "ruling": "It does; the predicate and the exception message name the same condition, verified by reading both."
+    }
+  ],
+  "criteriaAssessment": {
+    "satisfiedByInspection": [
+      1,
+      2
+    ],
+    "satisfiedByEvidence": [
+      3
+    ]
+  },
+  "gateReadiness": {
+    "state": "not_ready",
+    "blockingConditions": []
+  },
+  "whyNoChallenge": "No criterion is violated by the implementation, so there is nothing to dispute."
+}

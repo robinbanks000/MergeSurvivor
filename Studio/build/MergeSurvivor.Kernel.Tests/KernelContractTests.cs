@@ -70,7 +70,8 @@ namespace MergeSurvivor.Kernel.Tests
                 "cost.schema.json",
                 "proposal.schema.json",
                 "challenge.schema.json",
-                "division-report.schema.json"
+                "division-report.schema.json",
+                "ruling.schema.json"
             };
 
             Assert.That(Kernel.Schemas.Keys, Is.EquivalentTo(expected));

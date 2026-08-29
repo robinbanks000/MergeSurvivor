@@ -1,0 +1,72 @@
+{
+  "id": "RUL-0001",
+  "division": "quality",
+  "boss": "qa-director",
+  "taskId": "WO-0008",
+  "at": "2026-08-29T00:00:00Z",
+  "verdict": "specification-short",
+  "proposalsRaised": [
+    "PRO-0004",
+    "PRO-0005"
+  ],
+  "challengesRaised": [],
+  "rulings": [
+    {
+      "matter": "1 -- is criterion 6 unsatisfiable",
+      "ruling": "CONFIRMED, and the verifier understated it. I re-derived it rather than accepting the report. The verifier framed overflow as 'possible', which reads as an implementation choice the implementer declined to prevent. It is not a choice: criterion 5 explicitly names float.MaxValue as a dt that must be accepted and added, and two applications of the behaviour criterion 5 mandates produce a sum of 6.805e38 against a binary32 maximum of 3.4028235e38, which rounds to +Infinity on the store to the float field at RunState.cs:80. Every dt in that sequence is finite and non-negative, nothing throws, nothing is a no-op. Criteria 5 and 6 are jointly unsatisfiable for any implementation in which ElapsedSeconds is a float, and widening the accumulator to double does not help because the public float property saturates on the narrowing read. Consequences, in order. (a) The implementation is ACCEPTABLE and I file no challenge: it satisfies criterion 6 across the entire domain criterion 6 can coherently describe, and no reachable behaviour of RunState.Tick is wrong here. (b) The criterion NEEDS AMENDING BY THE WORK-ORDER AUTHOR, bounding it to sequences whose exact real sum of accepted dt does not exceed float.MaxValue. I am not amending it myself -- adjudicating a criterion is not authoring one. PRO-0004 carries the request. (c) The overflow is an ACCEPTABLE LIMIT, not a defect, and I am not proposing it be fixed: float.MaxValue is about 1e31 years of run time, and the only route there is a single absurd computed dt, which is the channel PRO-0002 already closes at its source. The limit worth documenting is precision, not range, and it sits thirty orders of magnitude nearer: at dt = 0.016 the accumulator loses roughly half of each increment past about 2^17 seconds (~1.5 days) and stops advancing entirely past 2^19 seconds (~6 days) while TickCount keeps counting correctly -- PRO-0002's exact signature. No current caller accumulates near that, so: logged, documented in the XML doc by engineering, no work order."
+    },
+    {
+      "matter": "2 -- Criterion6_OverflowPossibilityNote",
+      "ruling": "IT DOES NOT STAY. It is L-001 repeated inside the work order that exists to undo L-001's first instance: a comment explaining what the implementation does, reasoned forward into an assertion that it is right. It is worse than Criterion3_NaNDtIncrements in one respect -- that test asserted a true fact about an accepted call, whereas this one asserts a negated property, Is.False on float.IsFinite, so it goes red the day anyone saturates or clamps the overflow. It is a test that punishes the fix, and it is a standing instruction to the next reader that overflowing the run clock is required behaviour. REWRITTEN, NOT DELETED, and this ruling is the written authorisation L-002 requires, scoped to exactly this one test and nothing else in the file. The replacement pins the amended contract at its boundary instead of pinning the overflow: tick float.MaxValue / 2f twice -- both partial sums exactly representable, total exactly float.MaxValue -- then assert IsFinite is true and ElapsedSeconds equals float.MaxValue. The overflow fact moves into PRO-0004's evidence, where a specification conflict belongs. If the author instead rules that overflow must be actively prevented, the correct test is the positive one, IsFinite true after two Tick(float.MaxValue) calls, and it is introduced together with the change that makes it pass and never before -- a knowingly red test is not a ratchet. I have written no test code myself; the rewrite is dispatched, not performed.",
+      "authorises": [
+        "Rewrite Criterion6_OverflowPossibilityNote in Assets/Tests/Core.Tests/WO0008CriteriaVerificationTests.cs, and that test only, replacing its assertion that float.IsFinite(ElapsedSeconds) is false with a boundary test: tick float.MaxValue / 2f twice and assert IsFinite is true and ElapsedSeconds equals float.MaxValue."
+      ]
+    },
+    {
+      "matter": "3 -- the criterion 6 finding was prompted, not discovered",
+      "ruling": "The verification step has earned very little confidence this round, and I will not soften that. It has earned confidence that the twelve criteria are STATED to be covered. It has earned none that the code is correct outside them. A finding produced after being told where to look is evidence about the prompter, not the verifier, and the 47 tests are otherwise a clerical restatement of the criteria -- almost every one is a criterion turned into an Assert, which is exactly the drift toward whatever is easy to test that this role exists to counteract. Three things I found unprompted in the same single reading, which is the measure I am judging it against. (a) The file cannot distinguish 'leaves ElapsedSeconds unchanged' from 'zeroes ElapsedSeconds': every such assertion compares against a fresh run's 0f, and the one mixed sequence that ticks a rejected dt onto an accumulated clock asserts only finiteness, never the value. An implementation that set ElapsedSeconds = 0f inside the guard would pass all 91 tests written across two rounds specifically to stop a rejected Tick corrupting ElapsedSeconds. That is the central claim of PRO-0002, currently unfalsifiable. (b) Criterion10_RunStateDoesNotReferenceDeltaTime contains no check for a UnityEngine reference of any kind -- it constructs a run and calls Tick. That is the identical non-test I already recorded against WO-0007 criterion 12 in RPT-20260827-quality, repeated after the lesson was published. (c) The verifier never looked past the file it was pointed at: the identical defective guard, with the identical message, sits in WaveScheduler.Tick and PlayerMotor.Tick, and in the first of those a non-finite dt is an unbounded allocation and a non-terminating loop, not a wrong number. See PRO-0005. Standing correction to the verification brief, effective next round: no criterion is signed off with a test that only restates it; every criterion's coverage must include at least one test that would fail against a NAMED plausible-wrong implementation, written down before the test; and the verifier's brief will require it to state what it looked at outside the file under order."
+    },
+    {
+      "matter": "founder authorisation honoured exactly",
+      "ruling": "YES, on the evidence available to me, with the limitation stated below. Exactly the three named tests changed. Criterion3_NaNDtIncrements and Criterion3_PositiveInfinityDtIncrements became Criterion3_NaNDtThrowsAndLeavesStateUnchanged and Criterion3_PositiveInfinityDtThrowsAndLeavesStateUnchanged, each asserting Throws<ArgumentOutOfRangeException> plus unchanged TickCount and unchanged ElapsedSeconds, which is what criteria 1 and 2 require. Criterion3_ManyTicksWithVariedDt dropped its two non-finite entries to { 0f, 0.1f, 1000f, float.MaxValue } and still asserts Is.EqualTo(dtValues.Length) -- assertion strength identical -- with the removed entries relocated into Criterion3_ManyTicksWithVariedDt_NonFiniteEntriesThrowAndDoNotIncrement, which is strictly stronger than what it replaced. The authorised split option was taken, not the weaker drop-only option. No other assertion in the file is weakened, nothing is Ignore'd or Inconclusive, no exception is swallowed to hide a failure, and no tolerance was widened -- the only Within() calls are the pre-existing 1e-4f in Criterion11_ElapsedSecondsAccumulation and EdgeCase_ZeroDtDoesNotCauseIssues, unchanged. Nothing was deleted: EVD-0004 records 97 Core tests at ae3169b, and 97 + 2 net additions in RunStateVerificationTests (the ManyTicksWithVariedDt split, and the criterion 7 regression test) + 47 in the new file = 146, which is exactly the [Test] count now present across the eight files. The replacements assert the specification rather than the code, and the tell is in their comments, which now read 'The specification requires dt to be a finite, non-negative number' -- reasoning down from the contract, the exact inverse of the L-001 phrasing they replace. LIMITATION, stated rather than glossed: I have no shell in this environment, so I could not run git diff or the suite. My finding rests on textual comparison against PRO-0002's quoted line ranges plus the count reconciliation above. Before the gate signs, someone with a shell must run `git diff ae3169b -- Assets/Tests/Core.Tests/RunStateVerificationTests.cs` and confirm only those three hunks plus the added regression test. I am naming that as a gate step, not claiming it as done."
+    }
+  ],
+  "criteriaAssessment": {
+    "satisfiedByInspection": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      8,
+      9,
+      10,
+      12
+    ],
+    "unsatisfiableAsWritten": [
+      6
+    ],
+    "notYetEvidenced": [
+      7,
+      11
+    ],
+    "notes": "Criteria 1-5 and 12: the guard `if (!float.IsFinite(dt) || dt < 0f) throw` at RunState.cs:70-73 precedes every mutation and precedes the IsOver early-return, so NaN, +Infinity and -Infinity all throw and leave TickCount and ElapsedSeconds untouched, negative finite dt still throws, and the message 'dt must be a finite number >= 0.' names exactly the predicate enforced. Guard-before-IsOver ordering is preserved from the pre-fix code and is required by criteria 1-3 read literally, which say 'throws' without qualifying on IsOver. Criterion 9: AddScore, RegisterKill, EndRun, Reset and the Seed comment are untouched, including AddScore's message. Criterion 10: RunState.cs has a single using, System. Criterion 8: verified by reading the file, not by a test -- WO0008CriteriaVerificationTests.cs:353-363 covers it with a comment block, which is inspection, not coverage, and is recorded as such exactly as I recorded WO-0007 criterion 12. Criterion 7 requires evidence that the regression test FAILED against the pre-fix code; no evidence record for WO-0008 exists under Studio/evidence (the latest is EVD-0004 for WO-0007), and a regression test that never demonstrably failed does not satisfy the criterion by its own wording. Criterion 11 requires the full suite to build and pass, which I cannot observe without a shell. Neither gap is a fault in the code."
+  },
+  "gateReadiness": {
+    "state": "not_ready",
+    "blockingConditions": [
+      "Criterion 7: produce the T0/T1 evidence record showing Regression_NaNDtLeavesElapsedSecondsFiniteAndUnchanged failing against the pre-fix guard (dt < 0f) and passing after. Absent it, criterion 7 is unmet by its own terms.",
+      "Criterion 11: a warnings-as-errors build and a full green run of all 146 tests in Assets/Tests/Core.Tests, recorded as evidence. I have not run them and cannot.",
+      "Criterion 6: the work-order author must amend it per PRO-0004. As written it is false against any conforming implementation, so signing the gate with it unamended means signing something known to be untrue.",
+      "Criterion6_OverflowPossibilityNote must be rewritten per the matter-2 ruling before the gate signs. It currently asserts that overflowing the run clock is correct behaviour."
+    ],
+    "nonBlockingLogged": [
+      "GameManager.cs:42 now propagates ArgumentOutOfRangeException out of Update on a non-finite Time.deltaTime where it previously corrupted the clock silently. That is the intended trade -- fail loud -- and no caller depends on the old behaviour, so WO-0008 escalateIf clause 2 is not triggered. Logged, not blocking.",
+      "Six tests in WO0008CriteriaVerificationTests.cs use a bare try/catch with no accompanying throw assertion; each is paired with a separate Throws test, so the set is complete, but individually they would not detect a regression to silent acceptance.",
+      "The precision limit of a float ElapsedSeconds, per PRO-0004's notes."
+    ]
+  },
+  "boundariesObserved": "I wrote no production code and no test code. Assets/** is untouched by me, including the test I have ruled must be rewritten -- PRO-0004 dispatches that rewrite rather than performing it. I amended no acceptance criterion; criterion 6's amendment is requested from its author. I marked nothing complete: WO-0008 stays dispatched and the G2 verdict is not mine to give. I waived nothing.",
+  "whyNoChallenge": "I checked each finding against the twelve criteria before choosing an instrument, and no criterion is violated by the implementation. Criterion 6 is violated only in the sense that it is violated by every possible conforming implementation, which makes it a specification defect and not engineering's fault -- a challenge there would be manufactured. The two genuinely unmet criteria, 7 and 11, are unmet for want of an evidence record on an order still in flight, not for want of correct code, and challenging an implementer for not yet having filed evidence on a dispatched order would be premature. The defect-certifying test and the coverage hole are in Assets/Tests, which is this division's own output, so they are my ruling to make and not a challenge against anyone. PRO-0005's findings lie outside WO-0008's scope entirely. So: nothing worth challenging this round, stated plainly rather than invented.",
+  "limitations": "The director stated it had no shell in its environment and so could not run git diff or the test suite; its finding on the founder authorisation rests on textual comparison plus test-count reconciliation, and it named `git diff ae3169b -- Assets/Tests/Core.Tests/RunStateVerificationTests.cs` as a gate step someone with a shell must perform. Separately, on re-homing: this record was written to Studio/state/reports against division-report.schema.json, which cannot express a verdict, because no ruling contract existed. Only the container changed; every ruling, assessment and condition below is the director's text verbatim. The one edit is the verdict field, whose original free text was \"not-complete-pending-evidence; no challenge filed against engineering\" and which is mapped here to the nearest enum value."
+}

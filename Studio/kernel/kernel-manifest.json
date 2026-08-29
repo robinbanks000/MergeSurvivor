@@ -2,24 +2,97 @@
   "description": "Maps every live kernel document to the schema that governs it. The validator reads this, so a new kernel document that is not listed here is a test failure rather than an unvalidated file. It doubles as the orchestrator's map of where state lives.",
   "version": 1,
   "documents": [
-    { "path": "Studio/constitution/org.json", "schema": "org.schema.json", "layer": "L0" },
-    { "path": "Studio/constitution/gates.json", "schema": "gate.schema.json", "layer": "L0" },
-    { "path": "Studio/constitution/permissions.json", "schema": "permission.schema.json", "layer": "L0" },
-    { "path": "Studio/constitution/memory.json", "schema": "memory.schema.json", "layer": "L0" },
-    { "path": "Studio/constitution/budgets.json", "schema": "cost.schema.json", "layer": "L0" },
-    { "path": "Studio/state/project-state.json", "schema": "project-state.schema.json", "layer": "L2" }
+    {
+      "path": "Studio/constitution/org.json",
+      "schema": "org.schema.json",
+      "layer": "L0"
+    },
+    {
+      "path": "Studio/constitution/gates.json",
+      "schema": "gate.schema.json",
+      "layer": "L0"
+    },
+    {
+      "path": "Studio/constitution/permissions.json",
+      "schema": "permission.schema.json",
+      "layer": "L0"
+    },
+    {
+      "path": "Studio/constitution/memory.json",
+      "schema": "memory.schema.json",
+      "layer": "L0"
+    },
+    {
+      "path": "Studio/constitution/budgets.json",
+      "schema": "cost.schema.json",
+      "layer": "L0"
+    },
+    {
+      "path": "Studio/state/project-state.json",
+      "schema": "project-state.schema.json",
+      "layer": "L2"
+    }
   ],
   "globs": [
-    { "glob": "Studio/constitution/agents/*.json", "schema": "agent.schema.json", "layer": "L0" },
-    { "glob": "Studio/decisions/ADR-*.json", "schema": "decision.schema.json", "layer": "L1" },
-    { "glob": "Studio/state/proposals/PRO-*.json", "schema": "proposal.schema.json", "layer": "L2" },
-    { "glob": "Studio/state/challenges/CHA-*.json", "schema": "challenge.schema.json", "layer": "L2" },
-    { "glob": "Studio/state/reports/RPT-*.json", "schema": "division-report.schema.json", "layer": "L2" },
-    { "glob": "Studio/orders/**/WO-*.json", "schema": "task.schema.json", "layer": "L2" },
-    { "glob": "Studio/state/escalations/ESC-*.json", "schema": "escalation.schema.json", "layer": "L2" },
-    { "glob": "Studio/state/failures/FAIL-*.json", "schema": "failure.schema.json", "layer": "L2" },
-    { "glob": "Studio/state/events/EVT-*.json", "schema": "event.schema.json", "layer": "L2" },
-    { "glob": "Studio/state/messages/MSG-*.json", "schema": "message.schema.json", "layer": "L2" },
-    { "glob": "Studio/evidence/**/EVD-*.json", "schema": "evidence.schema.json", "layer": "L3" }
+    {
+      "glob": "Studio/constitution/agents/*.json",
+      "schema": "agent.schema.json",
+      "layer": "L0"
+    },
+    {
+      "glob": "Studio/decisions/ADR-*.json",
+      "schema": "decision.schema.json",
+      "layer": "L1"
+    },
+    {
+      "glob": "Studio/state/proposals/PRO-*.json",
+      "schema": "proposal.schema.json",
+      "layer": "L2"
+    },
+    {
+      "glob": "Studio/state/challenges/CHA-*.json",
+      "schema": "challenge.schema.json",
+      "layer": "L2"
+    },
+    {
+      "glob": "Studio/state/rulings/RUL-*.json",
+      "schema": "ruling.schema.json",
+      "layer": "L2"
+    },
+    {
+      "glob": "Studio/state/reports/RPT-*.json",
+      "schema": "division-report.schema.json",
+      "layer": "L2"
+    },
+    {
+      "glob": "Studio/orders/**/WO-*.json",
+      "schema": "task.schema.json",
+      "layer": "L2"
+    },
+    {
+      "glob": "Studio/state/escalations/ESC-*.json",
+      "schema": "escalation.schema.json",
+      "layer": "L2"
+    },
+    {
+      "glob": "Studio/state/failures/FAIL-*.json",
+      "schema": "failure.schema.json",
+      "layer": "L2"
+    },
+    {
+      "glob": "Studio/state/events/EVT-*.json",
+      "schema": "event.schema.json",
+      "layer": "L2"
+    },
+    {
+      "glob": "Studio/state/messages/MSG-*.json",
+      "schema": "message.schema.json",
+      "layer": "L2"
+    },
+    {
+      "glob": "Studio/evidence/**/EVD-*.json",
+      "schema": "evidence.schema.json",
+      "layer": "L3"
+    }
   ]
 }

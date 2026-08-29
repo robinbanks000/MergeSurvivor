@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/ruling.schema.json",
+  "title": "Ruling",
+  "description": "A director's adjudication of one work order: which acceptance criteria are met, whether the gate may sign, and what is authorised. This contract exists because the kernel did not have one and the gap was found the hard way -- the quality director produced a full adjudication of WO-0008 with nowhere valid to put it, and wrote it into division-report.schema.json, which describes a period status report (what completed, what is blocked, what was spent) and cannot express a verdict. Adjudication is a director's central act; a process that cannot record it in a validated form is asking its directors to reason in prose that nothing downstream can read. A ruling is not a challenge: a challenge asserts that work violates a criterion, while a ruling is the judgement on the work as a whole and is filed whether or not anything was violated.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "division",
+    "boss",
+    "taskId",
+    "at",
+    "verdict",
+    "criteriaAssessment",
+    "gateReadiness"
+  ],
+  "properties": {
+    "id": {
+      "description": "RUL-nnnn. Shares the 9xxx reserved range convention with proposals and challenges: fixtures never collide with live rulings.",
+      "type": "string",
+      "pattern": "^RUL-[0-9]{4,}$"
+    },
+    "division": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/divisionId" },
+    "boss": {
+      "description": "The director who ruled. Cross-checks verify this agent actually leads the division named above, so a ruling cannot be issued by someone without the standing to make it.",
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId"
+    },
+    "taskId": {
+      "description": "The work order being ruled on. A ruling that names no work order judges nothing.",
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId"
+    },
+    "at": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "verdict": {
+      "description": "'adequate' means the implementation meets the specification as written, which is not the same as the work being finished -- see gateReadiness. 'specification-short' means the implementation is correct but the criteria fail to cover something, which is a proposal not a challenge. 'violated' means a criterion is actually broken and a challenge must accompany this ruling.",
+      "type": "string",
+      "enum": ["adequate", "specification-short", "violated", "inconclusive"]
+    },
+    "proposalsRaised": {
+      "type": "array",
+      "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/proposalId" }
+    },
+    "challengesRaised": {
+      "type": "array",
+      "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/challengeId" }
+    },
+    "rulings": {
+      "description": "The individual determinations, each on one matter put to the director.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["matter", "ruling"],
+        "properties": {
+          "matter": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+          "ruling": { "type": "string", "minLength": 30 },
+          "authorises": {
+            "description": "What this ruling permits that would otherwise be forbidden -- for instance replacing a named passing assertion, which L-002 requires be authorised in writing. An implementer may treat this as the authorisation.",
+            "type": "array",
+            "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+          }
+        }
+      }
+    },
+    "criteriaAssessment": {
+      "description": "Which acceptance criteria stand where, by number. Deliberately not a single pass/fail: 'satisfied' and 'not yet evidenced' are different states, and collapsing them is how unevidenced work gets signed off.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "satisfiedByInspection": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
+        "satisfiedByEvidence": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
+        "unsatisfiableAsWritten": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
+        "notYetEvidenced": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
+        "violated": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
+        "notes": { "type": "string" }
+      }
+    },
+    "gateReadiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": { "type": "string", "enum": ["ready", "not_ready"] },
+        "blockingConditions": {
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "nonBlockingLogged": {
+          "description": "Limits examined and deliberately not turned into work. Recording these is what stops the same question being re-raised every round, and it is the thing the proposal contract had no room for.",
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "boundariesObserved": {
+      "description": "What the director did not do, and why. A director that quietly fixes what it judges has stopped being a check on anything.",
+      "type": "string"
+    },
+    "whyNoChallenge": {
+      "description": "Required when no challenge accompanies the ruling. Forces a director declining to challenge to say so explicitly, which is the only way to tell 'nothing was wrong' apart from 'nobody looked'.",
+      "type": "string",
+      "minLength": 20
+    },
+    "limitations": {
+      "description": "What the director could not verify and why -- missing tooling, unrun evidence, a check someone else must perform. A ruling that hides its own blind spots is worse than one that has them.",
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "description": "A verdict of 'violated' means a criterion is broken, and that must be filed as a challenge rather than left in prose, or the implementer never formally learns of it.",
+      "if": {
+        "properties": { "verdict": { "const": "violated" } },
+        "required": ["verdict"]
+      },
+      "then": {
+        "properties": { "challengesRaised": { "minItems": 1 } },
+        "required": ["challengesRaised"]
+      }
+    },
+    {
+      "description": "Silence about a challenge is ambiguous between 'nothing was wrong' and 'nobody checked'. If no challenge was raised, the ruling must say why not.",
+      "if": {
+        "anyOf": [
+          { "not": { "required": ["challengesRaised"] } },
+          { "properties": { "challengesRaised": { "maxItems": 0 } } }
+        ]
+      },
+      "then": { "required": ["whyNoChallenge"] }
+    },
+    {
+      "description": "A gate held back must name what is holding it, or nobody can clear it.",
+      "if": {
+        "properties": {
+          "gateReadiness": {
+            "properties": { "state": { "const": "not_ready" } },
+            "required": ["state"]
+          }
+        },
+        "required": ["gateReadiness"]
+      },
+      "then": {
+        "properties": {
+          "gateReadiness": {
+            "properties": { "blockingConditions": { "minItems": 1 } },
+            "required": ["blockingConditions"]
+          }
+        }
+      }
+    },
+    {
+      "description": "A gate declared ready while blocking conditions stand is a contradiction, and the kind that gets read as approval.",
+      "if": {
+        "properties": {
+          "gateReadiness": {
+            "properties": { "state": { "const": "ready" } },
+            "required": ["state"]
+          }
+        },
+        "required": ["gateReadiness"]
+      },
+      "then": {
+        "properties": {
+          "gateReadiness": {
+            "properties": { "blockingConditions": { "maxItems": 0 } }
+          }
+        }
+      }
+    },
+    {
+      "description": "A criterion found unsatisfiable is a defect in the specification, so it must leave behind a proposal to amend it. Otherwise the next round re-derives the same conflict.",
+      "if": {
+        "properties": {
+          "criteriaAssessment": {
+            "properties": { "unsatisfiableAsWritten": { "minItems": 1 } },
+            "required": ["unsatisfiableAsWritten"]
+          }
+        },
+        "required": ["criteriaAssessment"]
+      },
+      "then": {
+        "properties": { "proposalsRaised": { "minItems": 1 } },
+        "required": ["proposalsRaised"]
+      }
+    }
+  ]
+}
