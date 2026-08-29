@@ -1,0 +1,10 @@
+{
+  "id": "EVD-0005",
+  "tier": "T0",
+  "producedBy": "core-simulation-engineer",
+  "taskId": "WO-0010",
+  "at": "2026-08-29T16:59:12Z",
+  "verdict": "pass",
+  "summary": "CHA-0001 remedy, criteria 15/16: pre-remedy failure evidence for RejectsAbsorbingDeltaTimeThatWouldNeverAdvanceTheSchedule (fails in 76ms with BoundedBufferCapacityExceededException at the 1000-item cap, not a hang, against WaveScheduler.Tick before the non-progress check existed) and AcceptsALargeDeltaTimeThatCanStillAdvanceTheSchedule (already green pre-remedy, since it guards against over-rejection rather than the hang). Both pass after the non-progress check was added. Full pre-remedy failure text: 'Expected: <System.ArgumentOutOfRangeException> But was: <BoundedBufferCapacityExceededException: Bounded test buffer exceeded its cap of 1000 items without the spawn loop terminating.>' at WaveScheduler.cs line 72.",
+  "commit": "f00be6e"
+}

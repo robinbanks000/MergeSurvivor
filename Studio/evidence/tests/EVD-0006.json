@@ -1,0 +1,17 @@
+{
+  "id": "EVD-0006",
+  "tier": "T1",
+  "producedBy": "core-simulation-engineer",
+  "taskId": "WO-0010",
+  "at": "2026-08-29T16:59:12Z",
+  "verdict": "pass",
+  "summary": "CHA-0001 remedy: ./Studio/build/gate-g2.sh run against the working tree with DtGuard, WaveScheduler.Tick's non-progress check, and the two new WaveSchedulerTests regression tests in place (18 WaveSchedulerTests pass: 16 pre-existing unmodified plus 2 new). Build 0 warnings/0 errors, 162 Core tests + 145 kernel tests pass. Unresolved finding recorded separately: the non-progress check, implemented exactly per RUL-0003's mandated single-first-step shape, does not achieve amended criterion 11 clause (1)'s unrestricted-termination claim -- dt=33570436f with interval=2f, firstDelay=1f passes the guard and then never terminates (confirmed against this tree's real WaveScheduler.Tick with a bounded buffer, failing in 17ms at the 1000-item cap). Escalated to engineering-director rather than fixed, since the check's shape is mandated by RUL-0003 and not mine to redesign without further authorisation.",
+  "commit": "f00be6e",
+  "metrics": {
+    "coreTests": 162,
+    "kernelTests": 145,
+    "testsFailed": 0,
+    "waveSchedulerTests": 18,
+    "buildWarnings": 0
+  }
+}

@@ -285,6 +285,65 @@ namespace MergeSurvivor.Core.Tests
         }
 
         [Test]
+        public void RejectsAbsorbingDeltaTimeThatWouldNeverAdvanceTheSchedule()
+        {
+            // RATCHET (CHA-0001 / RUL-0003 matter 4(i)): the specification requires
+            // Tick to reject, before mutating state or appending anything, any dt for
+            // which binary32 addition of _interval to the post-subtraction timer would
+            // not strictly increase it -- because that is precisely the condition under
+            // which the catch-up loop below would never terminate. With
+            // Scheduler(firstDelay: 1f, interval: 2f), dt = 1e8f is such a value: `1f -
+            // 1e8f` and `(1f - 1e8f) + 2f` are bit-identical in binary32. Rejection must
+            // leave the buffer untouched and the internal schedule exactly as it was, so
+            // a later valid Tick call spawns exactly as if the rejected call had never
+            // happened.
+            //
+            // Against a Tick that lacks this check, this fails fast and deterministically
+            // with BoundedBufferCapacityExceededException ("Bounded test buffer exceeded
+            // its cap of 1000 items without the spawn loop terminating."), not
+            // ArgumentOutOfRangeException and not a hang, because the bounded buffer
+            // throws once the loop runs past 1000 iterations -- see recorded evidence.
+            var untouched = Scheduler(firstDelay: 1f, interval: 2f);
+            var exercised = Scheduler(firstDelay: 1f, interval: 2f);
+            var untouchedBuffer = new List<SpawnRequest>();
+            var boundedBuffer = new BoundedSpawnRequestBuffer();
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => exercised.Tick(1e8f, boundedBuffer));
+            Assert.That(boundedBuffer.Count, Is.Zero);
+
+            int untouchedCount = untouched.Tick(5f, untouchedBuffer);
+            var exercisedBuffer = new List<SpawnRequest>();
+            int exercisedCount = exercised.Tick(5f, exercisedBuffer);
+
+            Assert.That(exercisedCount, Is.EqualTo(untouchedCount));
+            Assert.That(exercisedBuffer.Count, Is.EqualTo(untouchedBuffer.Count));
+        }
+
+        [Test]
+        public void AcceptsALargeDeltaTimeThatCanStillAdvanceTheSchedule()
+        {
+            // NON-OVER-REJECTION (amended criterion 11 clause (4); RUL-0003 matter
+            // 4(ii)): the specification requires that a large finite dt for which the
+            // schedule can still genuinely advance must be accepted, not rejected, and
+            // Tick must return the full catch-up count with every due spawn appended.
+            // Without this test, the ratchet above is satisfiable by an implementation
+            // that rejects any dt above some conservative fixed constant, which would
+            // defeat the scheduler while still appearing to fix the hang.
+            //
+            // dt = 1e5 seconds at interval 2f is nowhere near the absorption relation
+            // (full absorption requires roughly 2^24 due spawns; this dt due only
+            // 50000), so the schedule provably still advances through ordinary,
+            // unabsorbed binary32 addition.
+            var scheduler = Scheduler(firstDelay: 1f, interval: 2f);
+            var buffer = new List<SpawnRequest>();
+
+            int count = scheduler.Tick(100_000f, buffer);
+
+            Assert.That(count, Is.EqualTo(50_000));
+            Assert.That(buffer.Count, Is.EqualTo(50_000));
+        }
+
+        [Test]
         public void NaNDeltaTimeDoesNotMutateInternalTimerWithNonDefaultState()
         {
             // Criterion 2: A rejected Tick call must leave _timeUntilNextSpawn exactly

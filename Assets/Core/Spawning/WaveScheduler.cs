@@ -53,6 +53,30 @@ namespace MergeSurvivor.Core.Spawning
         /// <summary>
         /// Advances the schedule and appends every spawn that came due. The caller owns
         /// the buffer so a steady-state frame allocates nothing.
+        ///
+        /// Termination check (CHA-0001 / RUL-0003): repeated addition into a binary32
+        /// field is not strictly increasing -- once <c>_interval</c> falls at or below
+        /// half an ulp of the accumulator, the store rounds back to a bit-identical
+        /// value and an iteration that looks like it advances the timer makes no
+        /// progress at all (verified: with the timer at <c>1f - 1e8f</c>, adding <c>2f</c>
+        /// returns a bit-identical value). So before mutating <see cref="_timeUntilNextSpawn"/>
+        /// or appending anything, this method computes the post-subtraction timer and,
+        /// if a spawn is already due (that value is &lt;= 0) and adding <c>_interval</c>
+        /// to it would not produce a strictly greater value, rejects <paramref name="dt"/>
+        /// outright rather than entering the catch-up loop below.
+        ///
+        /// <see cref="_timeUntilNextSpawn"/>'s magnitude is non-increasing across catch-up
+        /// iterations -- each iteration adds the fixed positive <c>_interval</c> to a
+        /// non-positive value, moving it toward zero -- which is why this check inspects
+        /// only the first prospective increment rather than every iteration: whenever the
+        /// first increment's binade keeps a constant ulp for the remainder of the
+        /// catch-up run (the common case away from the specific magnitude at which
+        /// <c>_interval</c> sits exactly on a round-half-to-even tie of that binade's
+        /// ulp), a non-decreasing ulp means that progress at the first step implies
+        /// progress at every later step too. This check is known to leave a narrower gap
+        /// than an unconditional "no dt causes non-termination" claim would require; see
+        /// the escalation accompanying this change for the counterexample and the
+        /// bounds of what this check actually guarantees.
         /// </summary>
         /// <returns>How many requests were appended.</returns>
         public int Tick(float dt, IList<SpawnRequest> into)
@@ -64,7 +88,15 @@ namespace MergeSurvivor.Core.Spawning
                 throw new ArgumentNullException(nameof(into));
             }
 
-            _timeUntilNextSpawn -= dt;
+            float prospectiveTimer = _timeUntilNextSpawn - dt;
+            if (prospectiveTimer <= 0f && !(prospectiveTimer + _interval > prospectiveTimer))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(dt), dt,
+                    "dt is too large relative to this scheduler's configured interval for the catch-up schedule to advance in single-precision arithmetic.");
+            }
+
+            _timeUntilNextSpawn = prospectiveTimer;
 
             int spawned = 0;
             while (_timeUntilNextSpawn <= 0f)

@@ -1,0 +1,24 @@
+{
+  "id": "EVD-0007",
+  "tier": "T3",
+  "producedBy": "core-simulation-engineer",
+  "taskId": "WO-0010",
+  "at": "2026-08-29T16:59:12Z",
+  "verdict": "pass",
+  "summary": "CHA-0001 remedy, criterion 18: Studio/sim/MergeSurvivor.Sim run at seed 12345 against the pre-remedy tree (commit f00be6e, before WaveScheduler.Tick's non-progress check) and the post-remedy working tree. Studio/evidence/sims/metrics_pre.json and metrics_post.json are byte-identical (diff exit code 0) -- no metric moved. Program.cs's RunSchedule calls Tick only with dt in {1/30, 1/60, 1/240}, orders of magnitude away from both the absorption region (~1e8 for interval=2f) and the round-half-to-even counterexample found during this task (~3.36e7 for interval=2f), so this confirms the remedy's practical effect on this harness's current configuration but does not, by itself, confirm RUL-0003's general monotonicity argument, which this task found to be false in general (see final report / escalation).",
+  "commit": "f00be6e",
+  "seed": 12345,
+  "metrics": {
+    "determinismDivergences": 0,
+    "dpsTier1": 20,
+    "dpsTierMax": 24145.388672,
+    "meanSpawnsPerRun": 60,
+    "minDpsGrowthPerTier": 2.2,
+    "seedsSwept": 1000,
+    "simulatedSecondsPerSeed": 120,
+    "spawnsAt240fps": 60,
+    "spawnsAt30fps": 60,
+    "spawnsPerMinute": 30,
+    "worstMergePremium": 1.1
+  }
+}
