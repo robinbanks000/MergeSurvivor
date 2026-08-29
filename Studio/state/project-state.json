@@ -1,17 +1,24 @@
 {
-  "version": 4,
-  "updatedAt": "2026-08-27T16:00:00Z",
+  "version": 5,
+  "updatedAt": "2026-08-29T12:00:00Z",
   "phase": {
     "current": 3,
     "name": "Hundred-agent organisation",
     "blockedOn": [
       "PILLARS.md and NON_GOALS.md do not exist; the entire product-design division (11 agents) and G1 cannot operate",
-      "Branch protection not enabled, so CODEOWNERS is documentation and G2 can be bypassed by merging around it",
-      "UNITY_LICENSE secrets absent, so G3 skips and the Unity layer stays unverified",
-      "Core has no combat model, so four balance and simulation agents remain dormant"
+      "Core has no combat model, so four balance and simulation agents remain dormant",
+      "The project has never been opened in Unity, so no .meta files or ProjectSettings assets are committed; CI regenerates them, so this no longer blocks G3, but CI and the founder's editor are not testing an identical project"
     ]
   },
   "backlog": [
+    {
+      "id": "WO-0010",
+      "title": "Reject non-finite dt in WaveScheduler and PlayerMotor, per PRO-0005",
+      "level": "L3",
+      "status": "dispatched",
+      "priority": 1,
+      "assignedTo": "core-simulation-engineer"
+    },
     {
       "id": "WO-0002",
       "title": "Author PILLARS.md and NON_GOALS.md",
@@ -49,8 +56,9 @@
       "id": "WO-0008",
       "title": "Reject non-finite dt in RunState.Tick, per PRO-0002",
       "level": "L3",
-      "status": "queued",
-      "priority": 2
+      "status": "in_progress",
+      "priority": 2,
+      "assignedTo": "core-simulation-engineer"
     },
     {
       "id": "WO-0009",
@@ -216,9 +224,8 @@
   "openEscalations": [],
   "humanQueue": [
     "Author the game pillars and non-goals, which no agent may write and which block eleven agents",
-    "Enable branch protection on main with required status check 'G2 Code Gate' and Code Owner review",
-    "Add Unity CI secrets for GameCI so G3 can run",
-    "Open the project in Unity once and commit the generated ProjectSettings assets"
+    "Add 'Unity editmode' and 'Unity playmode' to the required status checks on main -- NOT 'G3 editmode results' or 'G3 playmode results', which GameCI reports as neutral even when passing, and a neutral check does not block a merge",
+    "Open the project in Unity once and commit the generated ProjectSettings assets and .meta files"
   ],
   "blockedDependencies": [
     "balance-director -> design-director",
