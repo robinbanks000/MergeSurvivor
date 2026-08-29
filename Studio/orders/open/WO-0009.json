@@ -1,0 +1,48 @@
+{
+  "kind": "work-order",
+  "id": "WO-0009",
+  "agent": "core-simulation-engineer",
+  "level": "L3",
+  "goal": "Make RunState.RegisterKill atomic on its failure path: today it increments Kills and only then delegates to AddScore, which is where the negative-value guard lives, so RegisterKill(-1) permanently raises Kills for a kill the call rejected. Reorder RegisterKill so a rejected call leaves every field exactly as it found it, and make the thrown exception name the parameter the caller actually supplied.",
+  "rationale": "Per PRO-0003 (qa-director, Studio/state/proposals/PRO-0003.json), reused in full here and not re-derived: Assets/Core/Run/RunState.cs:107-108 executes `Kills++;` before `AddScore(scoreValue);`, and AddScore's guard at lines 86-90 is where the negative-value rejection lives, so a rejecting call has already mutated Kills by the time it throws. The two counters RegisterKill exists to keep in step are separated by the very path meant to prevent the change. The thrown exception also carries `nameof(amount)` -- AddScore's own parameter name -- for a call the caller made through RegisterKill's `scoreValue` parameter, which points a bug report at the wrong method. Assets/Unity/GameManager.cs:47 passes an unvalidated int straight through as a public passthrough, and the throw happens inside a Unity callback where the engine logs and swallows it, so the inflated Kills count survives into the run with no visible trace. Neither existing test suite calls RegisterKill with a negative argument (Assets/Tests/Core.Tests/RunStateTests.cs:62-67 and RunStateVerificationTests.cs's Criterion11 test both exercise the negative path only through AddScore directly), so this partial mutation has never been observed by a test.\n\nRUL-0001 (Studio/state/rulings/RUL-0001.json, matter 3(a)) found that WO-0008's verification could not distinguish 'leaves a field unchanged' from 'resets it to its zero default', because every such assertion in that round compared against a fresh RunState's default value. This order's criteria are written specifically to close that hole: every 'unchanged' assertion below must be made against a captured non-default value, not against a fresh object's default.\n\nNO INVERSION IS AUTHORISED BY THIS ORDER. This fix is additive -- it changes the internal ordering of RegisterKill's body and the ParamName on one exception path, but requires no existing assertion in any test file to change, invert or weaken. Per LESSONS.md L-002, if the implementer believes an existing assertion must change to make the suite pass, that is not covered by anything written here; stop and escalate rather than treating this order as authorisation.",
+  "inputs": [
+    "Studio/state/proposals/PRO-0003.json",
+    "Studio/state/rulings/RUL-0001.json",
+    "Assets/Core/Run/RunState.cs",
+    "Assets/Tests/Core.Tests/RunStateTests.cs",
+    "Assets/Tests/Core.Tests/RunStateVerificationTests.cs",
+    "Assets/Tests/Core.Tests/WO0008CriteriaVerificationTests.cs",
+    "Studio/lessons/LESSONS.md"
+  ],
+  "acceptanceCriteria": [
+    "RegisterKill(scoreValue) validates scoreValue for negativity before Kills is incremented and before Score changes: RegisterKill(-1) on a run that is not over throws ArgumentOutOfRangeException without incrementing Kills and without changing Score.",
+    "The exception thrown by RegisterKill for a negative scoreValue has ParamName equal to \"scoreValue\" (the name of RegisterKill's own parameter), not \"amount\". This requires RegisterKill to perform its own negative-value check ahead of the delegation to AddScore for the failing path; it must not be achieved by renaming AddScore's parameter or by changing AddScore's own throw in any way (see criterion on AddScore below).",
+    "The critical regression test, written to avoid the exact hole RUL-0001 identified in WO-0008's verification (a test that compares only against a fresh object's default cannot distinguish 'unchanged' from 'reset to zero'): on a single RunState instance, call RegisterKill with at least two valid non-negative scoreValues and at least one Tick with a valid non-negative dt, so that Kills, Score, ElapsedSeconds and TickCount are all non-zero and non-default (e.g. Kills == 2, Score > 0, ElapsedSeconds > 0f, TickCount == 1). Capture Kills, Score, ElapsedSeconds, TickCount and IsOver into local variables at that point. Then call RegisterKill(-1) and assert it throws ArgumentOutOfRangeException. Then assert Kills, Score, ElapsedSeconds, TickCount and IsOver are each exactly equal (not merely finite, not merely zero) to the captured pre-call values, not to any fresh RunState's defaults.",
+    "RegisterKill(0) does not throw: it increments Kills by exactly 1 and leaves Score unchanged from its value immediately before the call (0 added is not a decrease and is within AddScore's existing contract). This is the boundary decision this order fixes in place; 0 is a valid, accepted scoreValue exactly as it is today.",
+    "For every valid (non-negative) scoreValue, RegisterKill's observable behaviour is unchanged from today: Kills increases by exactly 1 and Score increases by exactly scoreValue, in the same run, for the same sequence of calls, as before this fix. RegisterKill continues to delegate the Score-adding effect to a call to AddScore(scoreValue) on every successful path; the fix must not duplicate Score-mutation logic outside AddScore.",
+    "RegisterKillRaisesBothKillsAndScore in Assets/Tests/Core.Tests/RunStateTests.cs continues to pass with its assertions exactly as written today (Kills == 1, Score == 25 after a single RegisterKill(25) on a fresh run); this test's source is not modified by this order.",
+    "AddScore's own validation and message are byte-for-byte untouched: AddScore(-1), called directly (not through RegisterKill), still throws ArgumentOutOfRangeException with ParamName \"amount\" and message \"Score never decreases in this game; use a separate penalty concept if that changes.\", exactly as before this fix. RejectsNegativeScore in RunStateTests.cs continues to pass unmodified.",
+    "The IsOver early-return behaviour of both methods is preserved exactly, including a case not covered by any existing test: when IsOver is true, RegisterKill(scoreValue) returns without throwing and without changing Kills, Score, ElapsedSeconds or TickCount for every scoreValue, including negative values -- RegisterKill's own IsOver check must remain the first statement in the method, ahead of the new negative-value validation, so the negative-value check is reached only when the run is not over. (AddScore's own IsOver check, and its ordering relative to its own negative-value check, are unchanged, per the criterion above.)",
+    "Criterion9_RegisterKillIncrementsKills and Criterion9_RegisterKillAlsoAddsScore in Assets/Tests/Core.Tests/WO0008CriteriaVerificationTests.cs, and Criterion6_RegisterKillDoesNotChangeTickCountOrSeed in Assets/Tests/Core.Tests/RunStateVerificationTests.cs, continue to pass unmodified.",
+    "RegisterKill never changes TickCount, Seed or ElapsedSeconds on any path, successful or throwing, exactly as today.",
+    "A new regression test is demonstrated failing against the pre-fix RunState.cs (Kills incremented before AddScore's guard runs) and passing after the fix. Evidence must record the actual pre-fix failure output (the captured pre-call Kills value versus the post-throw Kills value actually observed, showing the increment survived the throw), not merely an assertion that it would fail, as WO-0008 criterion 7 and WO-0010 criterion 17 required.",
+    "Assets/Core/Run/RunState.cs contains no reference to UnityEngine, and RegisterKill continues to take scoreValue as an explicit int parameter with no ambient state read.",
+    "The full Assets/Tests/Core.Tests suite (all files, not only the ones named above) builds and passes with the corrected RunState.cs, with no assertion in any existing test file altered, weakened or removed."
+  ],
+  "acceptanceCriteriaAuthor": "work-order-author",
+  "writeScope": [
+    "Assets/Core/Run/**",
+    "Assets/Tests/Core.Tests/**"
+  ],
+  "evidenceRequired": ["T0", "T1"],
+  "retryBudget": 3,
+  "escalateIf": [
+    "Any existing assertion in any file under Assets/Tests/Core.Tests would need to change, be inverted or be weakened to make the suite pass -- no inversion is authorised by this order; stop and state the hypothesis rather than treating this order as founder authorisation",
+    "Giving the RegisterKill-path exception ParamName \"scoreValue\" cannot be achieved without modifying AddScore's own throw, message or parameter name in any way -- AddScore's validation and message are required to stay byte-for-byte untouched, so if the two requirements are found to conflict, stop and report the conflict rather than resolving it unilaterally",
+    "Assets/Unity/GameManager.cs:47 is found to require a change (e.g. to validate scoreValue before calling Run.RegisterKill) to fully close the reachability path described in PRO-0003 -- that file is outside this order's write scope; note it as a proposal for a separate order rather than widening this task's scope",
+    "The regression test required by acceptance criterion 11 cannot be made to fail against the current, unmodified RunState.cs, which would indicate the described defect is not reachable as specified"
+  ],
+  "budgetId": "BUD-ENG",
+  "createdAt": "2026-08-29T00:00:00Z",
+  "status": "dispatched"
+}
