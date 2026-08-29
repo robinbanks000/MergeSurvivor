@@ -283,5 +283,79 @@ namespace MergeSurvivor.Core.Tests
 
             Assert.That(buffer, Is.Empty);
         }
+
+        [Test]
+        public void NaNDeltaTimeDoesNotMutateInternalTimerWithNonDefaultState()
+        {
+            // Criterion 2: A rejected Tick call must leave _timeUntilNextSpawn exactly
+            // as it was. This test verifies this against a plausible-wrong implementation:
+            // one that subtracts dt from _timeUntilNextSpawn before calling the DtGuard.
+            // The test NaNDeltaTimeDoesNotAffectSubsequentSpawns verifies the effect
+            // indirectly by comparing two schedulers; this test verifies directly by
+            // checking that after a rejected call with NaN, the scheduler's behavior
+            // is identical to one that never received the call. We set non-default
+            // initial delay so any state mutation would be observable.
+            // Plausible-wrong implementation: modifies _timeUntilNextSpawn before validating dt.
+            var withoutNaN = Scheduler(firstDelay: 0.5f, interval: 2f);
+            var withNaN = Scheduler(firstDelay: 0.5f, interval: 2f);
+            var bufferWithoutNaN = new List<SpawnRequest>();
+            var bufferWithNaN = new List<SpawnRequest>();
+
+            // Tick both with 0.3f; neither should spawn yet (0.5f delay not met)
+            int countWithoutNaN1 = withoutNaN.Tick(0.3f, bufferWithoutNaN);
+            Assert.That(countWithoutNaN1, Is.Zero);
+
+            int countWithNaN1 = withNaN.Tick(0.3f, bufferWithNaN);
+            Assert.That(countWithNaN1, Is.Zero);
+
+            // Now hit withNaN with NaN - this should NOT advance its internal timer
+            var naNBuffer = new List<SpawnRequest>();
+            Assert.Throws<ArgumentOutOfRangeException>(() => withNaN.Tick(float.NaN, naNBuffer));
+            Assert.That(naNBuffer, Is.Empty);
+
+            // Now tick both with 0.3f more; they should spawn at the same time (0.6f total)
+            int countWithoutNaN2 = withoutNaN.Tick(0.3f, bufferWithoutNaN);
+            int countWithNaN2 = withNaN.Tick(0.3f, bufferWithNaN);
+
+            // If the NaN call modified the timer before throwing, countWithNaN2 would differ
+            Assert.That(countWithNaN2, Is.EqualTo(countWithoutNaN2),
+                "Internal timer must not be modified by a rejected Tick call");
+            Assert.That(bufferWithNaN.Count, Is.EqualTo(bufferWithoutNaN.Count),
+                "Spawn count must not be affected by a rejected Tick call");
+        }
+
+        [Test]
+        public void PositiveInfinityDeltaTimeDoesNotMutateInternalTimerWithNonDefaultState()
+        {
+            // Criterion 5: Similar to NaN case above, for float.PositiveInfinity.
+            // A rejected Tick call must leave _timeUntilNextSpawn exactly as it was.
+            // Plausible-wrong implementation: modifies _timeUntilNextSpawn before validating dt.
+            var withoutInfinity = Scheduler(firstDelay: 0.5f, interval: 2f);
+            var withInfinity = Scheduler(firstDelay: 0.5f, interval: 2f);
+            var bufferWithoutInfinity = new List<SpawnRequest>();
+            var bufferWithInfinity = new List<SpawnRequest>();
+
+            // Tick both with 0.3f; neither should spawn yet (0.5f delay not met)
+            int countWithoutInfinity1 = withoutInfinity.Tick(0.3f, bufferWithoutInfinity);
+            Assert.That(countWithoutInfinity1, Is.Zero);
+
+            int countWithInfinity1 = withInfinity.Tick(0.3f, bufferWithInfinity);
+            Assert.That(countWithInfinity1, Is.Zero);
+
+            // Now hit withInfinity with PositiveInfinity - this should NOT advance its internal timer
+            var infinityBuffer = new BoundedSpawnRequestBuffer();
+            Assert.Throws<ArgumentOutOfRangeException>(() => withInfinity.Tick(float.PositiveInfinity, infinityBuffer));
+            Assert.That(infinityBuffer.Count, Is.Zero);
+
+            // Now tick both with 0.3f more; they should spawn at the same time (0.6f total)
+            int countWithoutInfinity2 = withoutInfinity.Tick(0.3f, bufferWithoutInfinity);
+            int countWithInfinity2 = withInfinity.Tick(0.3f, bufferWithInfinity);
+
+            // If the PositiveInfinity call modified the timer before throwing, countWithInfinity2 would differ
+            Assert.That(countWithInfinity2, Is.EqualTo(countWithoutInfinity2),
+                "Internal timer must not be modified by a rejected Tick call");
+            Assert.That(bufferWithInfinity.Count, Is.EqualTo(bufferWithoutInfinity.Count),
+                "Spawn count must not be affected by a rejected Tick call");
+        }
     }
 }

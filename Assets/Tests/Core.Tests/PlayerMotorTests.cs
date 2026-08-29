@@ -180,5 +180,62 @@ namespace MergeSurvivor.Core.Tests
 
             Assert.Throws<ArgumentOutOfRangeException>(() => motor.Tick(float.NegativeInfinity, 0f));
         }
+
+        [Test]
+        public void RejectsNaNDeltaTimeWithNonDefaultPositionAndCooldown()
+        {
+            // Criterion 7: A rejected Tick call must leave PositionX and FireCooldown
+            // exactly as they were. This test verifies this against a plausible-wrong
+            // implementation: one that resets state (e.g., PositionX = 0f, _fireCooldown = 0f)
+            // before calling the DtGuard. Against such an implementation, comparing captured
+            // default values would fail to catch the reset; this test sets non-default values
+            // first, so any pre-throw state mutation would be detected.
+            // Plausible-wrong implementation: moves or fires before validating dt.
+            var motor = Motor(speed: 5f, minX: -8f, maxX: 8f, startX: 0f);
+
+            // Set non-default state
+            motor.Tick(1f, 1f); // Move right to non-zero position
+            float positionBefore = motor.PositionX;
+            Assert.That(positionBefore, Is.GreaterThan(0f), "Position must be non-default for this test to catch mutations");
+
+            motor.TryFire(2f); // Set cooldown to 0.5f
+            float cooldownBefore = motor.FireCooldown;
+            Assert.That(cooldownBefore, Is.GreaterThan(0f), "Cooldown must be non-default for this test to catch mutations");
+
+            // Throw with NaN - must not change state
+            Assert.Throws<ArgumentOutOfRangeException>(() => motor.Tick(float.NaN, 1f));
+
+            // Verify state unchanged - now a non-default change would be caught
+            Assert.That(motor.PositionX, Is.EqualTo(positionBefore),
+                "PositionX must not be modified by a rejected Tick call");
+            Assert.That(motor.FireCooldown, Is.EqualTo(cooldownBefore),
+                "FireCooldown must not be modified by a rejected Tick call");
+        }
+
+        [Test]
+        public void RejectsPositiveInfinityDeltaTimeWithNonDefaultPositionAndCooldown()
+        {
+            // Criterion 8: Same as NaN case above, for float.PositiveInfinity.
+            // Plausible-wrong implementation: moves or fires before validating dt.
+            var motor = Motor(speed: 5f, minX: -8f, maxX: 8f, startX: 0f);
+
+            // Set non-default state
+            motor.Tick(1f, 1f); // Move right to non-zero position
+            float positionBefore = motor.PositionX;
+            Assert.That(positionBefore, Is.GreaterThan(0f), "Position must be non-default for this test to catch mutations");
+
+            motor.TryFire(2f); // Set cooldown to 0.5f
+            float cooldownBefore = motor.FireCooldown;
+            Assert.That(cooldownBefore, Is.GreaterThan(0f), "Cooldown must be non-default for this test to catch mutations");
+
+            // Throw with PositiveInfinity - must not change state
+            Assert.Throws<ArgumentOutOfRangeException>(() => motor.Tick(float.PositiveInfinity, 1f));
+
+            // Verify state unchanged - now a non-default change would be caught
+            Assert.That(motor.PositionX, Is.EqualTo(positionBefore),
+                "PositionX must not be modified by a rejected Tick call");
+            Assert.That(motor.FireCooldown, Is.EqualTo(cooldownBefore),
+                "FireCooldown must not be modified by a rejected Tick call");
+        }
     }
 }
