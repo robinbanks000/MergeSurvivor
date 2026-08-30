@@ -1,0 +1,15 @@
+{
+  "id": "EVD-0014",
+  "tier": "T1",
+  "producedBy": "ceo-orchestrator",
+  "at": "2026-08-30T09:17:30Z",
+  "verdict": "pass",
+  "summary": "WO-0008 criterion 11 / RUL-0005 condition 2: a green build-and-suite run tied to the tree carrying ALL of WO-0008 work, including the criterion 6 amendment, the boundary-test rewrite and its rename. EVD-0011 was at 4f4135e, which predates the rename; RUL-0005 refused it on exactly that. gate-g2.sh reports G2 PASSED with 0 warnings, 180 Core tests and 185 kernel tests.",
+  "commit": "64567ca",
+  "taskId": "WO-0008",
+  "metrics": {
+    "coreTests": 180,
+    "kernelTests": 185,
+    "buildWarnings": 0
+  }
+}

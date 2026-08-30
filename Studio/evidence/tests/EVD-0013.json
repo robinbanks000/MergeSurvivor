@@ -1,0 +1,17 @@
+{
+  "id": "EVD-0013",
+  "tier": "T0",
+  "producedBy": "ceo-orchestrator",
+  "at": "2026-08-30T09:17:05Z",
+  "verdict": "pass",
+  "summary": "WO-0008, the diff RUL-0001 matter 4 named as a gate step and explicitly did not claim done: `git diff ae3169b HEAD -- Assets/Tests/Core.Tests/RunStateVerificationTests.cs`. Result: 68 added, 9 removed, in ONE contiguous hunk @@ -122,33 +122,92 @@. Method-level changes, verbatim: `-Criterion3_PositiveInfinityDtIncrements` / `+Criterion3_PositiveInfinityDtThrowsAndLeavesStateUnchanged`; `-Criterion3_NaNDtIncrements` / `+Criterion3_NaNDtThrowsAndLeavesStateUnchanged`; `+Regression_NaNDtLeavesElapsedSecondsFiniteAndUnchanged`; `+Criterion3_ManyTicksWithVariedDt_NonFiniteEntriesThrowAndDoNotIncrement`. That is exactly the three founder-authorised inversions plus the added regression test and the authorised split, and nothing else. Two assertions removed, both being the ones that asserted non-finite dt increments -- the inversions themselves; ten added. No other hunk, no other method, no unrelated assertion touched.",
+  "commit": "64567ca",
+  "taskId": "WO-0008",
+  "metrics": {
+    "hunks": 1,
+    "linesAdded": 68,
+    "linesRemoved": 9,
+    "assertionsRemoved": 2,
+    "assertionsAdded": 10
+  }
+}
