@@ -93,14 +93,17 @@ namespace MergeSurvivor.Kernel.Tests
             // written for after PRO-0001, recurring in the two directories it did not
             // look at. Evidence ids are cited by gates and rulings, so a duplicate makes
             // "the evidence for criterion 11" ambiguous between two documents.
-            string[] dirs =
-            {
-                "state/proposals", "state/challenges", "state/escalations", "state/reports",
-                "state/rulings", "decisions", "evidence", "evidence/tests", "evidence/sims",
-            };
+            // Enumerated by hand, and wrong twice: state/rulings missing because I created
+            // that directory without extending this check, evidence missing because the
+            // list predates evidence ids being cited by anything. Naming subdirectories
+            // individually reproduces the same failure on the next directory anyone adds
+            // -- RUL-0004 called that the generator still running behind the instances.
+            // The roots are walked recursively instead, so the default on omission is
+            // "checked" rather than "silent".
+            string[] roots = { "state", "decisions", "evidence", "orders" };
             var seen = new Dictionary<string, string>();
 
-            foreach (string sub in dirs)
+            foreach (string sub in roots)
             {
                 string dir = Path.Combine(Kernel.RepoRoot, "Studio", sub.Replace('/', Path.DirectorySeparatorChar));
                 if (!Directory.Exists(dir))
@@ -108,7 +111,7 @@ namespace MergeSurvivor.Kernel.Tests
                     continue;
                 }
 
-                foreach (string file in Directory.GetFiles(dir, "*.json"))
+                foreach (string file in Directory.GetFiles(dir, "*.json", SearchOption.AllDirectories))
                 {
                     JsonNode doc = Kernel.ReadJson(file);
                     if (doc["id"] == null)

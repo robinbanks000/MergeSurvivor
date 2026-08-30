@@ -153,30 +153,75 @@ namespace MergeSurvivor.Kernel.Tests
                 "These kernel documents are validated by nothing. Add them to Studio/kernel/kernel-manifest.json.");
         }
 
+        /// <summary>
+        /// True when a file name claims a kernel record identifier: a known record prefix
+        /// followed immediately by digits. Case-insensitive, because the first version of
+        /// this rule matched Ordinal and so admitted `evd-0006-notes.md` -- and, as
+        /// RUL-0004 pointed out, my own rename of the offending file passed it only by
+        /// being lowercase, which meant the check was not drawing the boundary it meant
+        /// to draw. Extracted from the test so it can be sprung against synthetic names
+        /// rather than resting on a live impostor that no longer exists.
+        /// </summary>
+        internal static bool ClaimsARecordIdentifier(string fileName)
+        {
+            string[] prefixes = { "EVD", "PRO", "CHA", "RUL", "RPT", "WO", "ADR", "ESC", "FAIL", "EVT", "MSG" };
+
+            foreach (string prefix in prefixes)
+            {
+                if (fileName.Length > prefix.Length + 1
+                    && fileName.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase)
+                    && fileName[prefix.Length] == '-'
+                    && char.IsDigit(fileName[prefix.Length + 1]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static IEnumerable<TestCaseData> RecordNameCases()
+        {
+            yield return new TestCaseData("EVD-0005-WO0009-Criterion11.md", true).SetName("the live impostor RUL-0004 was filed over");
+            yield return new TestCaseData("evd-0006-notes.md", true).SetName("lowercase, which the Ordinal version admitted");
+            yield return new TestCaseData("wo-0009-criterion-11-regression.md", true).SetName("my own rename, which passed only by case");
+            yield return new TestCaseData("RUL-0004.json", true).SetName("a real record still claims an identifier");
+            yield return new TestCaseData("Fail-0001-postmortem.md", true).SetName("mixed case");
+            yield return new TestCaseData("LESSONS.md", false).SetName("prose with no identifier");
+            yield return new TestCaseData("README.md", false).SetName("prose with no identifier");
+            yield return new TestCaseData("workflow-notes.md", false).SetName("starts with WO but no digit follows the dash");
+            yield return new TestCaseData("evidence-summary.md", false).SetName("starts with EV but is not a prefix");
+            yield return new TestCaseData("metrics_pre.json", false).SetName("scratch output");
+        }
+
+        [TestCaseSource(nameof(RecordNameCases))]
+        public void ClaimsARecordIdentifierIsDecidedByPrefixAndDigit(string fileName, bool expected)
+        {
+            // The spring. Without it the rule below passes vacuously the moment the tree
+            // is clean, and would keep passing if someone trimmed the prefix list --
+            // RUL-0004's third finding against my own fix.
+            Assert.That(ClaimsARecordIdentifier(fileName), Is.EqualTo(expected), fileName);
+        }
+
         [Test]
         public void AFileNamedLikeAKernelRecordIsAKernelRecord()
         {
-            // The coverage check above filters to *.json, so that a stray README in the
-            // state tree does not demand a manifest entry. That filter turned out to be a
-            // hole rather than a convenience: a verification agent filed
-            // Studio/evidence/EVD-0005-WO0009-Criterion11.md, which claimed an id already
-            // held by Studio/evidence/tests/EVD-0005.json and was, being markdown,
-            // invisible to the manifest check, to the schema validator and to the
-            // id-uniqueness cross-check alike. Every id in this repository is cited by
-            // something -- a gate cites evidence, a ruling cites a proposal -- so a
-            // document that wears a record's name while escaping every check on records
-            // is worse than an unvalidated file: it reads as authoritative.
+            // EveryKernelDocumentIsCoveredByTheManifest filters to *.json so a stray README
+            // does not demand a manifest entry. That filter was a hole rather than a
+            // convenience: a verifier filed Studio/evidence/EVD-0005-WO0009-Criterion11.md,
+            // claiming an id already held by Studio/evidence/tests/EVD-0005.json, and being
+            // markdown it was invisible to the manifest check, the schema validator and the
+            // id-uniqueness cross-check alike. A document wearing a record's name while
+            // escaping every check on records is worse than an unvalidated file: it reads
+            // as authoritative.
             //
-            // The rule is narrow on purpose. Prose in the state tree stays fine; what is
-            // refused is prose wearing a record identifier.
-            var recordPrefixes = new[] { "EVD-", "PRO-", "CHA-", "RUL-", "RPT-", "WO-", "ADR-", "ESC-", "FAIL-", "EVT-", "MSG-" };
-
+            // Narrow on purpose. Prose in the state tree is fine; prose wearing a record
+            // identifier is not.
             IEnumerable<string> impostors = Kernel.TrackedFiles(
                 "Studio/constitution", "Studio/state", "Studio/decisions",
                 "Studio/evidence", "Studio/orders")
                 .Where(f => !f.EndsWith(".json", System.StringComparison.Ordinal))
-                .Where(f => recordPrefixes.Any(p =>
-                    Path.GetFileName(f).StartsWith(p, System.StringComparison.Ordinal)))
+                .Where(f => ClaimsARecordIdentifier(Path.GetFileName(f)))
                 .OrderBy(f => f);
 
             Assert.That(

@@ -1,0 +1,15 @@
+{
+  "id": "EVD-0009",
+  "tier": "T1",
+  "producedBy": "core-simulation-engineer",
+  "at": "2026-08-30T01:18:16Z",
+  "verdict": "pass",
+  "summary": "WO-0009 post-fix: gate-g2.sh green against the staged tree. Build 0 warnings, 180 Core tests and 149 kernel tests passing.",
+  "commit": "704dc4e",
+  "taskId": "WO-0009",
+  "metrics": {
+    "coreTests": 180,
+    "kernelTests": 149,
+    "buildWarnings": 0
+  }
+}

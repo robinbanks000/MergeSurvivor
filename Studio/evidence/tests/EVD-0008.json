@@ -1,0 +1,10 @@
+{
+  "id": "EVD-0008",
+  "tier": "T0",
+  "producedBy": "core-simulation-engineer",
+  "at": "2026-08-30T01:18:16Z",
+  "verdict": "pass",
+  "summary": "WO-0009 criterion 11, pre-fix demonstration -- verdict pass because the demonstration did what it was required to do, not because the code under it was sound. RunState.cs reverted to the Kills++/AddScore ordering with the new tests in place; dotnet test --filter WO0009 output, verbatim: \"Failed Criterion1_NegativeScoreValueThrowsWithoutIncrementingKills [52 ms] Expected: 0 But was: 1\"; \"Failed Criterion11_RejectedRegisterKillDoesNotLeaveKillsIncrementedAcrossTheThrow [1 ms] Expected: 1 But was: 2\"; \"Failed Criterion2_ExceptionParamNameIsScoreValueNotAmount [2 ms] Expected: \\\"scoreValue\\\" But was: \\\"amount\\\"\"; \"Failed Criterion3_RejectedRegisterKillLeavesNonDefaultStateExactlyUnchanged [4 ms]\". Exactly four reddened, which is the predicted set. Criterion 11 reads 1 against 2 rather than 0 against 1 because it starts from non-default Kills, per RUL-0001.",
+  "commit": "704dc4e",
+  "taskId": "WO-0009"
+}
