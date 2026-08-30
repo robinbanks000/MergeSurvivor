@@ -82,11 +82,16 @@
     "gateVerdict": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "gate", "taskId", "verdict", "evaluatedAt", "evaluatedBy", "evidence"],
+      "required": ["kind", "gate", "taskId", "verdict", "evaluatedAt", "evaluatedBy", "evidence", "commit"],
       "properties": {
         "kind": { "const": "gate-verdict" },
         "gate": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/gateId" },
         "taskId": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/taskId" },
+        "commit": {
+          "description": "The commit the gate was evaluated against. Required, because a verdict's whole value is that it can be re-checked: anyone may check out this commit, re-run the gate and contradict it. Without a commit the record asks to be believed instead, which is what a verdict must never do. Nothing in a repository can prove CI ran; binding the claim to a tree makes a false one discoverable rather than merely improbable.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$"
+        },
         "verdict": { "type": "string", "enum": ["pass", "fail", "overridden"] },
         "evaluatedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
         "evaluatedBy": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/actorId" },

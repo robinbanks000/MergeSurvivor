@@ -60,6 +60,11 @@
       "layer": "L2"
     },
     {
+      "glob": "Studio/state/verdicts/*.json",
+      "schema": "gate.schema.json",
+      "layer": "L2"
+    },
+    {
       "glob": "Studio/state/reports/RPT-*.json",
       "schema": "division-report.schema.json",
       "layer": "L2"

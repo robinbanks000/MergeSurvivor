@@ -2,9 +2,15 @@
   "kind": "gate-verdict",
   "gate": "G4",
   "taskId": "WO-0150",
+  "commit": "fccdbcb",
   "verdict": "fail",
   "evaluatedAt": "2026-08-27T12:00:00Z",
   "evaluatedBy": "balance-simulator",
-  "evidence": ["EVD-0002"],
-  "failedChecks": ["Median run length 92s is below the 150s floor", "Tier 7 dominates 81 percent of winning runs"]
+  "evidence": [
+    "EVD-0002"
+  ],
+  "failedChecks": [
+    "Median run length 92s is below the 150s floor",
+    "Tier 7 dominates 81 percent of winning runs"
+  ]
 }

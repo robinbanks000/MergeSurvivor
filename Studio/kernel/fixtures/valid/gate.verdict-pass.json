@@ -2,8 +2,11 @@
   "kind": "gate-verdict",
   "gate": "G2",
   "taskId": "WO-0142",
+  "commit": "1c23e13",
   "verdict": "pass",
   "evaluatedAt": "2026-08-27T10:20:00Z",
   "evaluatedBy": "ci",
-  "evidence": ["EVD-0001"]
+  "evidence": [
+    "EVD-0001"
+  ]
 }
