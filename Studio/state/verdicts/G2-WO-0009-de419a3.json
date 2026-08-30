@@ -1,0 +1,14 @@
+{
+  "kind": "gate-verdict",
+  "gate": "G2",
+  "taskId": "WO-0009",
+  "commit": "de419a3",
+  "verdict": "pass",
+  "evaluatedAt": "2026-08-30T09:01:58Z",
+  "evaluatedBy": "ceo-orchestrator",
+  "evidence": [
+    "EVD-0008",
+    "EVD-0009",
+    "EVD-0012"
+  ]
+}
