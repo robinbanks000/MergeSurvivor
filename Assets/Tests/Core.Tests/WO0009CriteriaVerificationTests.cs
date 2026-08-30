@@ -300,8 +300,11 @@ namespace MergeSurvivor.Core.Tests
         public void Criterion5_UniversalTest_ManyDifferentValidScoreValues()
         {
             // Test: for every valid scoreValue (not just a few samples), behavior is unchanged
+            // Sequence deliberately kept inside int range (sum=1,610,613,850) because Score
+            // overflow is an open question, not certified behaviour. int.MaxValue itself is
+            // covered without wraparound by Criterion5_BoundaryTest_LargeScoreValue on a fresh run.
             var run = new RunState();
-            int[] testValues = { 0, 1, 5, 10, 100, 1000, int.MaxValue / 2, int.MaxValue };
+            int[] testValues = { 0, 1, 5, 10, 100, 1000, int.MaxValue / 2, int.MaxValue / 4 };
             int expectedKills = 0;
             int accumulatedScore = 0;
 
@@ -408,7 +411,7 @@ namespace MergeSurvivor.Core.Tests
         }
 
         [Test]
-        public void Criterion10_MultipleFairingPaths()
+        public void Criterion10_MultipleFailingPaths()
         {
             var run = new RunState(456u);
             run.Tick(1.5f);
