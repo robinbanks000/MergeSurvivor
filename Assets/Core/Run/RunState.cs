@@ -104,6 +104,16 @@ namespace MergeSurvivor.Core.Run
                 return;
             }
 
+            if (scoreValue < 0)
+            {
+                // Validated here, ahead of the Kills increment, so a rejected call
+                // leaves Kills exactly as it found it. Delegating this check to
+                // AddScore's guard would let Kills++ below execute before the throw,
+                // which is the defect this ordering exists to prevent -- see PRO-0003.
+                throw new ArgumentOutOfRangeException(
+                    nameof(scoreValue), scoreValue, "Score never decreases in this game; use a separate penalty concept if that changes.");
+            }
+
             Kills++;
             AddScore(scoreValue);
         }
