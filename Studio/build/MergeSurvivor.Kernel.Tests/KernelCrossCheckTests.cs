@@ -233,12 +233,37 @@ namespace MergeSurvivor.Kernel.Tests
                 ? Directory.GetFiles(Path.Combine(Kernel.RepoRoot, "Studio", "state", "verdicts"), "*.json")
                 : Enumerable.Empty<string>();
 
-        /// <summary>A completed task must point at a verdict that exists, for its own gate.</summary>
-        internal static bool ClosureIsBackedByAVerdict(
+        /// <summary>
+        /// A completed task must be backed by a verdict for its own gate whose latest
+        /// evaluation passed. Written first without the verdict field in the tuple at all,
+        /// so a `fail` satisfied it exactly as well as a `pass`: a check written to stop an
+        /// order closing on an unverified gate would have let one close on a red gate. The
+        /// name said "backed by a verdict", which is exactly what it checked -- what it
+        /// checked was not enough, and the name is why that survived review.
+        ///
+        /// Latest, rather than "a pass exists and no fail exists". fail -> fix -> pass is
+        /// the normal history of a repaired defect, so a fail legitimately exists for most
+        /// closable orders; forbidding one would make the ratchet unclosable, which is a
+        /// check that forbids the correct workflow. evaluatedAt is schema-required and
+        /// ISO-8601 UTC, so ordinal comparison orders it correctly and this stays a pure
+        /// predicate that can be sprung.
+        /// </summary>
+        internal static bool ClosureIsBackedByAPassingVerdict(
             string status, string completedByGate, string taskId,
-            IEnumerable<(string Gate, string TaskId)> verdicts) =>
-            status != "completed"
-            || verdicts.Any(v => v.Gate == completedByGate && v.TaskId == taskId);
+            IEnumerable<(string Gate, string TaskId, string Verdict, string EvaluatedAt)> verdicts)
+        {
+            if (status != "completed")
+            {
+                return true;
+            }
+
+            var matching = verdicts
+                .Where(v => v.Gate == completedByGate && v.TaskId == taskId)
+                .OrderBy(v => v.EvaluatedAt, StringComparer.Ordinal)
+                .ToList();
+
+            return matching.Count > 0 && matching[matching.Count - 1].Verdict == "pass";
+        }
 
         /// <summary>Every evidence id a verdict cites must resolve to a record on disk.</summary>
         internal static bool CitedEvidenceExists(
@@ -302,11 +327,29 @@ namespace MergeSurvivor.Kernel.Tests
 
         private static IEnumerable<TestCaseData> VerdictRuleCases()
         {
-            var verdicts = new[] { ("G2", "WO-0008") };
-            yield return new TestCaseData(ClosureIsBackedByAVerdict("completed", "G2", "WO-0008", verdicts), true).SetName("closure with a matching verdict");
-            yield return new TestCaseData(ClosureIsBackedByAVerdict("completed", "G2", "WO-0009", verdicts), false).SetName("closure whose verdict is missing");
-            yield return new TestCaseData(ClosureIsBackedByAVerdict("completed", "G3", "WO-0008", verdicts), false).SetName("closure citing a gate that never ruled");
-            yield return new TestCaseData(ClosureIsBackedByAVerdict("dispatched", "", "WO-0009", verdicts), true).SetName("an open order needs no verdict");
+            var verdicts = new[] { ("G2", "WO-0008", "pass", "2026-08-30T09:17:37Z") };
+            yield return new TestCaseData(ClosureIsBackedByAPassingVerdict("completed", "G2", "WO-0008", verdicts), true).SetName("closure with a matching passing verdict");
+            yield return new TestCaseData(ClosureIsBackedByAPassingVerdict("completed", "G2", "WO-0009", verdicts), false).SetName("closure whose verdict is missing");
+            yield return new TestCaseData(ClosureIsBackedByAPassingVerdict("completed", "G3", "WO-0008", verdicts), false).SetName("closure citing a gate that never ruled");
+            yield return new TestCaseData(ClosureIsBackedByAPassingVerdict("dispatched", "", "WO-0009", verdicts), true).SetName("an open order needs no verdict");
+
+            // The three the first version got wrong, because its tuple carried no verdict.
+            var failOnly = new[] { ("G2", "WO-0008", "fail", "2026-08-30T09:00:00Z") };
+            yield return new TestCaseData(ClosureIsBackedByAPassingVerdict("completed", "G2", "WO-0008", failOnly), false).SetName("a lone fail verdict does not back a closure");
+
+            var passThenFail = new[]
+            {
+                ("G2", "WO-0008", "pass", "2026-08-30T09:00:00Z"),
+                ("G2", "WO-0008", "fail", "2026-08-30T10:00:00Z"),
+            };
+            yield return new TestCaseData(ClosureIsBackedByAPassingVerdict("completed", "G2", "WO-0008", passThenFail), false).SetName("a later fail overrides an earlier pass");
+
+            var failThenPass = new[]
+            {
+                ("G2", "WO-0008", "fail", "2026-08-30T09:00:00Z"),
+                ("G2", "WO-0008", "pass", "2026-08-30T10:00:00Z"),
+            };
+            yield return new TestCaseData(ClosureIsBackedByAPassingVerdict("completed", "G2", "WO-0008", failThenPass), true).SetName("fix then re-gate stays legal");
 
             var known = new HashSet<string> { "EVD-0010", "EVD-0011" };
             yield return new TestCaseData(CitedEvidenceExists(new[] { "EVD-0010" }, known), true).SetName("cited evidence exists");
@@ -336,7 +379,11 @@ namespace MergeSurvivor.Kernel.Tests
         {
             var verdicts = VerdictFiles()
                 .Select(Kernel.ReadJson)
-                .Select(v => (Gate: v["gate"].GetValue<string>(), TaskId: v["taskId"].GetValue<string>()))
+                .Select(v => (
+                    Gate: v["gate"].GetValue<string>(),
+                    TaskId: v["taskId"].GetValue<string>(),
+                    Verdict: v["verdict"].GetValue<string>(),
+                    EvaluatedAt: v["evaluatedAt"].GetValue<string>()))
                 .ToList();
 
             foreach (string path in Kernel.ExpandGlob("Studio/orders/**/WO-*.json"))
@@ -347,9 +394,9 @@ namespace MergeSurvivor.Kernel.Tests
                 string id = order["id"].GetValue<string>();
 
                 Assert.That(
-                    ClosureIsBackedByAVerdict(status, gate, id, verdicts),
+                    ClosureIsBackedByAPassingVerdict(status, gate, id, verdicts),
                     Is.True,
-                    $"{id} is completed but no {gate} verdict names it. completedByGate is a pointer; this one points at nothing.");
+                    $"{id} is completed but no passing {gate} verdict names it. completedByGate is a pointer; this one points at nothing, or at a verdict whose latest evaluation did not pass.");
             }
         }
 
