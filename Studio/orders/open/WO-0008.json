@@ -41,5 +41,7 @@
   ],
   "budgetId": "BUD-ENG",
   "createdAt": "2026-08-29T00:00:00Z",
-  "status": "dispatched"
+  "status": "completed",
+  "completedByGate": "G2",
+  "completedAt": "2026-08-30T15:30:00Z"
 }
