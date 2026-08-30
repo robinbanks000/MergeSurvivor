@@ -49,6 +49,12 @@ Studio/sim/**/obj/
 # Simulation metrics are regenerated on every run; the durable record of a run is
 # the evidence file under Studio/evidence, not this scratch output.
 Studio/evidence/sims/metrics.json
+# Same category: the pre/post comparison pair a T3 criterion asks for. The
+# durable record is the evidence file, which carries the verdict and every
+# metric value inline -- see EVD-0007. Tracking the raw pair also breaks
+# EveryKernelDocumentIsCoveredByTheManifest, since they are sim output rather
+# than kernel documents and no schema governs them.
+Studio/evidence/sims/metrics_*.json
 
 # ---- OS ----
 .DS_Store
