@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using MergeSurvivor.Core.Rng;
 using MergeSurvivor.Core.Spawning;
 using NUnit.Framework;
@@ -282,6 +283,89 @@ namespace MergeSurvivor.Core.Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => scheduler.Tick(float.NegativeInfinity, buffer));
 
             Assert.That(buffer, Is.Empty);
+        }
+
+        /// <summary>
+        /// Mirrors the exact shape of Tick's guard -- a float FIELD minus a float
+        /// PARAMETER, then a field added to the result -- so the probes below exercise
+        /// what Tick actually does. The first version of this diagnostic used locals
+        /// initialised from literals; it passed in PlayMode while Tick still failed
+        /// there, which proved only that I had tested the wrong thing. NoInlining keeps
+        /// the JIT from folding the arithmetic away and answering a question nobody
+        /// asked.
+        /// </summary>
+        private sealed class GuardShapeProbe
+        {
+            public float Timer;
+            public float Interval;
+
+            public GuardShapeProbe(float timer, float interval)
+            {
+                Timer = timer;
+                Interval = interval;
+            }
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            public float ProspectiveTimer(float dt) => Timer - dt;
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            public float Advanced(float prospective) => prospective + Interval;
+
+            /// <summary>The guard exactly as WaveScheduler.Tick writes it.</summary>
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            public bool SaysAbsorbed(float dt)
+            {
+                float prospective = Timer - dt;
+                return prospective <= 0f && !(prospective + Interval > prospective);
+            }
+        }
+
+        private static string Bits(float value) =>
+            $"{value:R} (0x{BitConverter.SingleToInt32Bits(value):X8})";
+
+        [Test]
+        public void ProbeA_FieldMinusParameterRoundsToBinary32()
+        {
+            // Link one. 1f - 1e8f must round to exactly -1e8f: ulp is 8 at that
+            // magnitude, and -99999999 is 1 away from -1e8 and 7 from -99999992.
+            var probe = new GuardShapeProbe(1f, 2f);
+            float prospective = probe.ProspectiveTimer(1e8f);
+
+            Assert.That(
+                BitConverter.SingleToInt32Bits(prospective),
+                Is.EqualTo(BitConverter.SingleToInt32Bits(-1e8f)),
+                $"the subtraction did not round to binary32. got {Bits(prospective)}, expected {Bits(-1e8f)}");
+        }
+
+        [Test]
+        public void ProbeB_AddingTheIntervalFieldIsAbsorbed()
+        {
+            // Link two. -1e8f + 2f must round back to bit-identical: 2 is below half
+            // an ulp of 8.
+            var probe = new GuardShapeProbe(1f, 2f);
+            float prospective = probe.ProspectiveTimer(1e8f);
+            float advanced = probe.Advanced(prospective);
+
+            Assert.That(
+                BitConverter.SingleToInt32Bits(advanced),
+                Is.EqualTo(BitConverter.SingleToInt32Bits(prospective)),
+                $"the addition was not absorbed. prospective {Bits(prospective)}, advanced {Bits(advanced)}");
+        }
+
+        [Test]
+        public void ProbeC_TheGuardExpressionSaysAbsorbed()
+        {
+            // Link three: the composite expression. If A and B pass and this fails, the
+            // operands were rounded when stored but the comparison itself was evaluated
+            // at wider precision -- which is a fact about expression evaluation, not
+            // about the arithmetic, and needs a different remedy from either.
+            var probe = new GuardShapeProbe(1f, 2f);
+
+            Assert.That(
+                probe.SaysAbsorbed(1e8f),
+                Is.True,
+                "the guard expression, in the exact shape Tick writes it, did not "
+                + "detect absorption -- so Tick will not reject this dt on this runtime.");
         }
 
         [Test]
