@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using MergeSurvivor.Core.Rng;
 
 namespace MergeSurvivor.Core.Spawning
@@ -77,6 +78,17 @@ namespace MergeSurvivor.Core.Spawning
         /// than an unconditional "no dt causes non-termination" claim would require; see
         /// the escalation accompanying this change for the counterexample and the
         /// bounds of what this check actually guarantees.
+        ///
+        /// The candidate sum is routed through <see cref="ToBinary32"/> before the
+        /// comparison, and that is load-bearing rather than decorative. C# permits a
+        /// floating-point expression to be evaluated at higher precision than its type,
+        /// and Unity's PlayMode runtime does exactly that here: G3 run 49 showed the
+        /// subtraction rounding correctly and the STORED sum coming back bit-identical,
+        /// while the inline comparison in the same expression still reported the sum as
+        /// strictly greater -- so the guard did not fire, the catch-up loop was entered,
+        /// and the same source that passes under .NET failed in the player. Rounding is
+        /// therefore forced at a call boundary, where a float32 parameter obliges the
+        /// conversion, rather than left to the evaluator's discretion.
         /// </summary>
         /// <returns>How many requests were appended.</returns>
         public int Tick(float dt, IList<SpawnRequest> into)
@@ -89,7 +101,8 @@ namespace MergeSurvivor.Core.Spawning
             }
 
             float prospectiveTimer = _timeUntilNextSpawn - dt;
-            if (prospectiveTimer <= 0f && !(prospectiveTimer + _interval > prospectiveTimer))
+            float advancedTimer = ToBinary32(prospectiveTimer + _interval);
+            if (prospectiveTimer <= 0f && !(advancedTimer > prospectiveTimer))
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(dt), dt,
@@ -108,5 +121,24 @@ namespace MergeSurvivor.Core.Spawning
 
             return spawned;
         }
+
+        /// <summary>
+        /// Rounds a float expression to an actual binary32 value, and stops the runtime
+        /// deciding otherwise.
+        ///
+        /// C# allows floating-point operations to be carried out at higher precision
+        /// than the operand type, so `a + b > a` can be answered from an unrounded
+        /// intermediate. Passing through a float32 parameter obliges the conversion;
+        /// NoInlining stops the round trip being optimised back out, which would restore
+        /// the very freedom this exists to remove.
+        ///
+        /// Needed because the guard in <see cref="Tick"/> asks a question ABOUT binary32
+        /// arithmetic -- whether the accumulator can still advance -- and a question
+        /// about binary32 must be answered in binary32. Answered at any wider precision
+        /// it reports that a schedule advances when the schedule, which lives in a float
+        /// field, cannot.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static float ToBinary32(float value) => value;
     }
 }

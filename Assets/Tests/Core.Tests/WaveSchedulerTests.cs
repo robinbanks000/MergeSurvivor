@@ -311,12 +311,27 @@ namespace MergeSurvivor.Core.Tests
             [MethodImpl(MethodImplOptions.NoInlining)]
             public float Advanced(float prospective) => prospective + Interval;
 
-            /// <summary>The guard exactly as WaveScheduler.Tick writes it.</summary>
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            private static float ToBinary32(float value) => value;
+
+            /// <summary>
+            /// The guard exactly as WaveScheduler.Tick writes it, forcing included.
+            ///
+            /// Without the ToBinary32 call this returned false in Unity PlayMode and
+            /// true under .NET -- G3 run 49, where ProbeA and ProbeB both passed in
+            /// PlayMode, so the subtraction rounded and the stored sum came back
+            /// bit-identical while the inline comparison in the same expression still
+            /// called the sum strictly greater. The naive form cannot be kept here as a
+            /// red demonstration of that, because under .NET it is perfectly correct;
+            /// the divergence is a property of the runtime, not of the expression, and
+            /// only the PlayMode leg can see it.
+            /// </summary>
             [MethodImpl(MethodImplOptions.NoInlining)]
             public bool SaysAbsorbed(float dt)
             {
                 float prospective = Timer - dt;
-                return prospective <= 0f && !(prospective + Interval > prospective);
+                float advanced = ToBinary32(prospective + Interval);
+                return prospective <= 0f && !(advanced > prospective);
             }
         }
 
@@ -355,10 +370,12 @@ namespace MergeSurvivor.Core.Tests
         [Test]
         public void ProbeC_TheGuardExpressionSaysAbsorbed()
         {
-            // Link three: the composite expression. If A and B pass and this fails, the
-            // operands were rounded when stored but the comparison itself was evaluated
-            // at wider precision -- which is a fact about expression evaluation, not
-            // about the arithmetic, and needs a different remedy from either.
+            // Link three: the composite expression, and the one that was broken. A and B
+            // passed in PlayMode while this failed, which located the defect precisely --
+            // the operands round when stored, but the comparison was answered from an
+            // unrounded intermediate. That is a fact about expression evaluation rather
+            // than about the arithmetic, and it is why the remedy is a forced conversion
+            // at a call boundary rather than anything to do with the numbers.
             var probe = new GuardShapeProbe(1f, 2f);
 
             Assert.That(
