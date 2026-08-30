@@ -262,5 +262,193 @@ namespace MergeSurvivor.Core.Tests
         // Criterion 13: the full suite builds and passes -- verified by running the
         // suite, not by an assertion in this file.
         // ============================================================================
+
+        // ============================================================================
+        // Additional universal verification tests (Criterion 5, 8, 10)
+        // ============================================================================
+        //
+        // Criterion 5 universal: "For EVERY valid (non-negative) scoreValue..."
+        // Plausible-Wrong Impl: RegisterKill only handles specific ranges (e.g., 0-100)
+        // and throws on large values like int.MaxValue, rather than accepting all non-negative ints.
+        //
+
+        [Test]
+        public void Criterion5_BoundaryTest_ZeroScoreValue()
+        {
+            var run = new RunState();
+            var scoreBefore = run.Score;
+
+            run.RegisterKill(0);
+
+            Assert.That(run.Kills, Is.EqualTo(1), "RegisterKill(0) must increment Kills");
+            Assert.That(run.Score, Is.EqualTo(scoreBefore), "RegisterKill(0) must not change Score");
+        }
+
+        [Test]
+        public void Criterion5_BoundaryTest_LargeScoreValue()
+        {
+            var run = new RunState();
+            const int largeValue = int.MaxValue;
+
+            run.RegisterKill(largeValue);
+
+            Assert.That(run.Kills, Is.EqualTo(1), "RegisterKill(int.MaxValue) must increment Kills");
+            Assert.That(run.Score, Is.EqualTo(largeValue), "RegisterKill(int.MaxValue) must add the full value to Score");
+        }
+
+        [Test]
+        public void Criterion5_UniversalTest_ManyDifferentValidScoreValues()
+        {
+            // Test: for every valid scoreValue (not just a few samples), behavior is unchanged
+            var run = new RunState();
+            int[] testValues = { 0, 1, 5, 10, 100, 1000, int.MaxValue / 2, int.MaxValue };
+            int expectedKills = 0;
+            int accumulatedScore = 0;
+
+            foreach (int scoreValue in testValues)
+            {
+                run.RegisterKill(scoreValue);
+                expectedKills++;
+                accumulatedScore += scoreValue;
+
+                Assert.That(run.Kills, Is.EqualTo(expectedKills),
+                    $"RegisterKill({scoreValue}) must increment Kills to {expectedKills}");
+                Assert.That(run.Score, Is.EqualTo(accumulatedScore),
+                    $"RegisterKill({scoreValue}) must accumulate Score to {accumulatedScore}");
+            }
+        }
+
+        //
+        // Criterion 8 universal: "when IsOver is true, RegisterKill(scoreValue) returns
+        // without throwing and without changing any state for EVERY scoreValue, including negative values"
+        // Plausible-Wrong Impl: Implementation that validates scoreValue (checks < 0) before
+        // checking IsOver, so throws on negative even when IsOver is true.
+        //
+
+        [Test]
+        public void Criterion8_NegativeBoundaryValue_NegativeMaxValue()
+        {
+            var run = new RunState();
+            run.RegisterKill(10);
+            run.Tick(1f);
+            run.EndRun();
+
+            var killsBefore = run.Kills;
+            var scoreBefore = run.Score;
+
+            Assert.DoesNotThrow(() => run.RegisterKill(int.MinValue),
+                "RegisterKill(int.MinValue) must be a silent no-op when IsOver=true, not throw");
+
+            Assert.That(run.Kills, Is.EqualTo(killsBefore), "Kills must be unchanged");
+            Assert.That(run.Score, Is.EqualTo(scoreBefore), "Score must be unchanged");
+        }
+
+        [Test]
+        public void Criterion8_UniversalTest_MultipleScoreValuesAfterIsOver()
+        {
+            // Test: for every scoreValue (positive, zero, negative), behavior is unchanged after IsOver
+            var run = new RunState();
+            run.RegisterKill(5);
+            run.Tick(0.5f);
+            run.EndRun();
+
+            var killsBefore = run.Kills;
+            var scoreBefore = run.Score;
+            var elapsedBefore = run.ElapsedSeconds;
+            var tickCountBefore = run.TickCount;
+
+            int[] testValues = { int.MinValue, -100, -1, 0, 1, 100, int.MaxValue };
+            foreach (int scoreValue in testValues)
+            {
+                Assert.DoesNotThrow(() => run.RegisterKill(scoreValue),
+                    $"RegisterKill({scoreValue}) must not throw when IsOver=true");
+
+                Assert.That(run.Kills, Is.EqualTo(killsBefore),
+                    $"Kills must be unchanged after RegisterKill({scoreValue}) when IsOver=true");
+                Assert.That(run.Score, Is.EqualTo(scoreBefore),
+                    $"Score must be unchanged after RegisterKill({scoreValue}) when IsOver=true");
+                Assert.That(run.ElapsedSeconds, Is.EqualTo(elapsedBefore),
+                    $"ElapsedSeconds must be unchanged after RegisterKill({scoreValue}) when IsOver=true");
+                Assert.That(run.TickCount, Is.EqualTo(tickCountBefore),
+                    $"TickCount must be unchanged after RegisterKill({scoreValue}) when IsOver=true");
+            }
+        }
+
+        //
+        // Criterion 10 universal: "RegisterKill never changes TickCount, Seed or ElapsedSeconds
+        // on ANY path, successful or throwing"
+        // Plausible-Wrong Impl: Implementation that has side effects like calling Tick(0) or
+        // resetting ElapsedSeconds in error handling.
+        //
+
+        [Test]
+        public void Criterion10_MultipleSuccessfulCalls()
+        {
+            var run = new RunState(123u);
+            run.Tick(2.5f);
+            var tickCountBefore = run.TickCount;
+            var seedBefore = run.Seed;
+            var elapsedBefore = run.ElapsedSeconds;
+
+            // Multiple successful RegisterKill calls should not change these fields
+            run.RegisterKill(10);
+            Assert.That(run.TickCount, Is.EqualTo(tickCountBefore), "TickCount unchanged after RegisterKill(10)");
+            Assert.That(run.Seed, Is.EqualTo(seedBefore), "Seed unchanged after RegisterKill(10)");
+            Assert.That(run.ElapsedSeconds, Is.EqualTo(elapsedBefore), "ElapsedSeconds unchanged after RegisterKill(10)");
+
+            run.RegisterKill(0);
+            Assert.That(run.TickCount, Is.EqualTo(tickCountBefore), "TickCount unchanged after RegisterKill(0)");
+            Assert.That(run.Seed, Is.EqualTo(seedBefore), "Seed unchanged after RegisterKill(0)");
+            Assert.That(run.ElapsedSeconds, Is.EqualTo(elapsedBefore), "ElapsedSeconds unchanged after RegisterKill(0)");
+
+            run.RegisterKill(int.MaxValue);
+            Assert.That(run.TickCount, Is.EqualTo(tickCountBefore), "TickCount unchanged after RegisterKill(int.MaxValue)");
+            Assert.That(run.Seed, Is.EqualTo(seedBefore), "Seed unchanged after RegisterKill(int.MaxValue)");
+            Assert.That(run.ElapsedSeconds, Is.EqualTo(elapsedBefore), "ElapsedSeconds unchanged after RegisterKill(int.MaxValue)");
+        }
+
+        [Test]
+        public void Criterion10_MultipleFairingPaths()
+        {
+            var run = new RunState(456u);
+            run.Tick(1.5f);
+            var tickCountBefore = run.TickCount;
+            var seedBefore = run.Seed;
+            var elapsedBefore = run.ElapsedSeconds;
+
+            // Multiple failing RegisterKill calls should not change these fields
+            try { run.RegisterKill(-1); } catch (ArgumentOutOfRangeException) { }
+            Assert.That(run.TickCount, Is.EqualTo(tickCountBefore), "TickCount unchanged after RegisterKill(-1)");
+            Assert.That(run.Seed, Is.EqualTo(seedBefore), "Seed unchanged after RegisterKill(-1)");
+            Assert.That(run.ElapsedSeconds, Is.EqualTo(elapsedBefore), "ElapsedSeconds unchanged after RegisterKill(-1)");
+
+            try { run.RegisterKill(int.MinValue); } catch (ArgumentOutOfRangeException) { }
+            Assert.That(run.TickCount, Is.EqualTo(tickCountBefore), "TickCount unchanged after RegisterKill(int.MinValue)");
+            Assert.That(run.Seed, Is.EqualTo(seedBefore), "Seed unchanged after RegisterKill(int.MinValue)");
+            Assert.That(run.ElapsedSeconds, Is.EqualTo(elapsedBefore), "ElapsedSeconds unchanged after RegisterKill(int.MinValue)");
+        }
+
+        [Test]
+        public void Criterion10_MixedSuccessAndFailure()
+        {
+            var run = new RunState(789u);
+            run.Tick(3.0f);
+            var tickCountBefore = run.TickCount;
+            var seedBefore = run.Seed;
+            var elapsedBefore = run.ElapsedSeconds;
+
+            // Mix of success and failure should not change TickCount, Seed, ElapsedSeconds
+            run.RegisterKill(50);
+            try { run.RegisterKill(-5); } catch (ArgumentOutOfRangeException) { }
+            run.RegisterKill(25);
+            try { run.RegisterKill(-100); } catch (ArgumentOutOfRangeException) { }
+
+            Assert.That(run.TickCount, Is.EqualTo(tickCountBefore),
+                "TickCount unchanged after mixed success/failure calls");
+            Assert.That(run.Seed, Is.EqualTo(seedBefore),
+                "Seed unchanged after mixed success/failure calls");
+            Assert.That(run.ElapsedSeconds, Is.EqualTo(elapsedBefore),
+                "ElapsedSeconds unchanged after mixed success/failure calls");
+        }
     }
 }

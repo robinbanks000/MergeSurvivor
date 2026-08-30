@@ -84,7 +84,20 @@ namespace MergeSurvivor.Kernel.Tests
             // director filed a real PRO-0001 while a fixture already claimed that id.
             //
             // Fixtures use a reserved 9xxx range so they can never collide with live work.
-            string[] dirs = { "state/proposals", "state/challenges", "state/escalations", "state/reports", "decisions" };
+            // evidence and state/rulings were both missing from this list, and both
+            // omissions were mine. Rulings because I added the directory and its schema
+            // without extending the check that exists to stop exactly this; evidence
+            // because the original list was written before evidence ids were
+            // cross-referenced by anything. A verifier then filed a second document
+            // claiming EVD-0005 and nothing objected -- the same collision this test was
+            // written for after PRO-0001, recurring in the two directories it did not
+            // look at. Evidence ids are cited by gates and rulings, so a duplicate makes
+            // "the evidence for criterion 11" ambiguous between two documents.
+            string[] dirs =
+            {
+                "state/proposals", "state/challenges", "state/escalations", "state/reports",
+                "state/rulings", "decisions", "evidence", "evidence/tests", "evidence/sims",
+            };
             var seen = new Dictionary<string, string>();
 
             foreach (string sub in dirs)

@@ -152,5 +152,39 @@ namespace MergeSurvivor.Kernel.Tests
                 Is.Empty,
                 "These kernel documents are validated by nothing. Add them to Studio/kernel/kernel-manifest.json.");
         }
+
+        [Test]
+        public void AFileNamedLikeAKernelRecordIsAKernelRecord()
+        {
+            // The coverage check above filters to *.json, so that a stray README in the
+            // state tree does not demand a manifest entry. That filter turned out to be a
+            // hole rather than a convenience: a verification agent filed
+            // Studio/evidence/EVD-0005-WO0009-Criterion11.md, which claimed an id already
+            // held by Studio/evidence/tests/EVD-0005.json and was, being markdown,
+            // invisible to the manifest check, to the schema validator and to the
+            // id-uniqueness cross-check alike. Every id in this repository is cited by
+            // something -- a gate cites evidence, a ruling cites a proposal -- so a
+            // document that wears a record's name while escaping every check on records
+            // is worse than an unvalidated file: it reads as authoritative.
+            //
+            // The rule is narrow on purpose. Prose in the state tree stays fine; what is
+            // refused is prose wearing a record identifier.
+            var recordPrefixes = new[] { "EVD-", "PRO-", "CHA-", "RUL-", "RPT-", "WO-", "ADR-", "ESC-", "FAIL-", "EVT-", "MSG-" };
+
+            IEnumerable<string> impostors = Kernel.TrackedFiles(
+                "Studio/constitution", "Studio/state", "Studio/decisions",
+                "Studio/evidence", "Studio/orders")
+                .Where(f => !f.EndsWith(".json", System.StringComparison.Ordinal))
+                .Where(f => recordPrefixes.Any(p =>
+                    Path.GetFileName(f).StartsWith(p, System.StringComparison.Ordinal)))
+                .OrderBy(f => f);
+
+            Assert.That(
+                impostors,
+                Is.Empty,
+                "These files are named like kernel records but are not JSON, so no schema governs them "
+                + "and the id-uniqueness check cannot see them. Either file the content as a real record "
+                + "under its contract, or rename it so it does not claim a record identifier.");
+        }
     }
 }
