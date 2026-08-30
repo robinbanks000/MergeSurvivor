@@ -1,0 +1,10 @@
+{
+  "id": "EVD-0010",
+  "tier": "T0",
+  "producedBy": "core-simulation-engineer",
+  "at": "2026-08-30T07:50:49Z",
+  "verdict": "pass",
+  "summary": "WO-0008 criterion 7, pre-fix demonstration -- verdict pass because the demonstration did what it was required to do, not because the code under it was sound. RunState.Tick reverted to the `if (dt < 0f)` guard with the post-fix tests in place; dotnet test output, verbatim: \"Failed Regression_NaNDtLeavesElapsedSecondsFiniteAndUnchanged [1 ms] Expected: True But was: False\"; \"Failed Criterion3_NaNDtThrowsAndLeavesStateUnchanged [1 ms] Expected: <System.ArgumentOutOfRangeException> But was: null\"; \"Failed Criterion3_PositiveInfinityDtThrowsAndLeavesStateUnchanged [1 ms] Expected: <System.ArgumentOutOfRangeException> But was: null\"; \"Failed Criterion3_ManyTicksWithVariedDt_NonFiniteEntriesThrowAndDoNotIncrement [43 ms] Expected: <System.ArgumentOutOfRangeException> But was: null\". Observed, not reconstructed -- RUL-0004 found a prior evidence document quoting runner text NUnit never emits.",
+  "commit": "4f4135e",
+  "taskId": "WO-0008"
+}

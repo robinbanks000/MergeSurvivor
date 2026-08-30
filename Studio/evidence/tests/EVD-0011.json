@@ -1,0 +1,15 @@
+{
+  "id": "EVD-0011",
+  "tier": "T1",
+  "producedBy": "core-simulation-engineer",
+  "at": "2026-08-30T07:50:49Z",
+  "verdict": "pass",
+  "summary": "WO-0008 criterion 11: warnings-as-errors build and full suite green against the fixed tree, with criterion 6 amended per RUL-0001 and Criterion6_OverflowPossibilityNote rewritten to pin the amended boundary. gate-g2.sh reports G2 PASSED.",
+  "commit": "4f4135e",
+  "taskId": "WO-0008",
+  "metrics": {
+    "coreTests": 180,
+    "kernelTests": 162,
+    "buildWarnings": 0
+  }
+}
