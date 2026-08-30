@@ -56,6 +56,12 @@ Studio/evidence/sims/metrics.json
 # than kernel documents and no schema governs them.
 Studio/evidence/sims/metrics_*.json
 
+# JARVIS renders the studio's own state into one page. The page is derived from
+# the records under Studio/, so committing it would create a second copy that
+# goes stale the moment anything is filed -- and a stale cockpit is worse than
+# no cockpit. Regenerate with: python3 Studio/jarvis/build-jarvis.py
+Studio/jarvis/jarvis.html
+
 # ---- OS ----
 .DS_Store
 Thumbs.db
