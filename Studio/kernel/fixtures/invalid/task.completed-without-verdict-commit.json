@@ -1,0 +1,17 @@
+{
+  "kind": "work-order",
+  "id": "WO-0145",
+  "agent": "gameplay-engineer",
+  "level": "L3",
+  "goal": "Add a pickup magnet radius",
+  "rationale": "ADR-0001",
+  "acceptanceCriteria": ["Pickups inside the radius move toward the player"],
+  "acceptanceCriteriaAuthor": "design-architect",
+  "writeScope": ["Assets/Core/Pickups/**"],
+  "evidenceRequired": ["T1"],
+  "retryBudget": 3,
+  "createdAt": "2026-08-27T09:00:00Z",
+  "status": "completed",
+  "completedByGate": "G2",
+  "completedAt": "2026-08-27T09:40:00Z"
+}

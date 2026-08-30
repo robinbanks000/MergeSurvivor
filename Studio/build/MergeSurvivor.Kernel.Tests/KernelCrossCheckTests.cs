@@ -234,35 +234,90 @@ namespace MergeSurvivor.Kernel.Tests
                 : Enumerable.Empty<string>();
 
         /// <summary>
-        /// A completed task must be backed by a verdict for its own gate whose latest
-        /// evaluation passed. Written first without the verdict field in the tuple at all,
-        /// so a `fail` satisfied it exactly as well as a `pass`: a check written to stop an
-        /// order closing on an unverified gate would have let one close on a red gate. The
-        /// name said "backed by a verdict", which is exactly what it checked -- what it
-        /// checked was not enough, and the name is why that survived review.
+        /// A completed task must NAME the verdict that authorised it, and that verdict must
+        /// exist, be for this gate and this task, and have passed.
         ///
-        /// Latest, rather than "a pass exists and no fail exists". fail -> fix -> pass is
-        /// the normal history of a repaired defect, so a fail legitimately exists for most
-        /// closable orders; forbidding one would make the ratchet unclosable, which is a
-        /// check that forbids the correct workflow. evaluatedAt is schema-required and
-        /// ISO-8601 UTC, so ordinal comparison orders it correctly and this stays a pure
-        /// predicate that can be sprung.
+        /// Two earlier versions of this rule were both too weak, in different ways. The
+        /// first carried only (Gate, TaskId) in its tuple and never read the verdict field,
+        /// so a lone `fail` satisfied it exactly as well as a `pass`. The second required
+        /// the latest verdict for the pair to be a `pass`, which closed that hole but left
+        /// the pointer a query rather than a pointer: it searched for *a* satisfying verdict
+        /// instead of resolving the *named* one. WO-0008 accumulated two passing verdicts
+        /// and the order could not say which closed it -- RUL-0008 matter 3 filed that
+        /// against itself and called it the lead architecture item.
+        ///
+        /// completedByVerdictCommit supplies the missing coordinate. A verdict has no id and
+        /// needs none: it is keyed by (gate, taskId, commit), and an order already carries
+        /// the first two, so the commit completes the key without restating anything that
+        /// could then disagree. Matching is on record CONTENTS, never on the emitter's
+        /// filename convention, so a renamed file still resolves.
+        ///
+        /// Four clauses, each answering one way a closure can lie:
+        ///   1. not completed        -> nothing to prove
+        ///   2. exists, and is for this gate and task   (dangling, wrong-task, wrong-gate)
+        ///   3. that verdict passed                     (closing on red)
+        ///   4. it was the latest verdict available at completedAt   (stale)
+        ///
+        /// Clause 4 is the supersession policy, authorised by the founder in writing after
+        /// it was put to them as a trade, because it supersedes the "latest must be pass"
+        /// rule and L-002 forbids replacing a passing assertion's meaning otherwise. A
+        /// closed order is a historical claim about a named tree; a `fail` filed later at an
+        /// unrelated commit is a different fact and belongs in a challenge, which is where
+        /// RUL-0008 put it. The alternative reds every closed order in the studio the day
+        /// main breaks, and a check that cries wolf that loudly gets ignored -- the disease
+        /// G3 had when it reported success on zero tests, inverted.
+        ///
+        /// Note that no separate "contradicted at the same commit" clause is needed:
+        /// emit-gate-verdict.sh writes {gate}-{task}-{commit}.json, so re-running the gate
+        /// at the named commit OVERWRITES the record. Re-run G2 at 9132222, get red, and
+        /// clause 3 turns the closed order red by itself -- exactly the alarm RUL-0008
+        /// asked for, firing only where the tree was actually attested.
+        ///
+        /// evaluatedAt and completedAt are schema-required ISO-8601 UTC, so ordinal
+        /// comparison orders them correctly and this stays a pure predicate that can be
+        /// sprung against synthetic input.
         /// </summary>
-        internal static bool ClosureIsBackedByAPassingVerdict(
+        internal static bool ClosureNamesThePassingVerdictThatAuthorisedIt(
             string status, string completedByGate, string taskId,
-            IEnumerable<(string Gate, string TaskId, string Verdict, string EvaluatedAt)> verdicts)
+            string completedByVerdictCommit, string completedAt,
+            IEnumerable<(string Gate, string TaskId, string Commit, string Verdict, string EvaluatedAt)> verdicts)
         {
             if (status != "completed")
             {
                 return true;
             }
 
-            var matching = verdicts
+            var forThisOrder = verdicts
                 .Where(v => v.Gate == completedByGate && v.TaskId == taskId)
+                .ToList();
+
+            var named = forThisOrder
+                .Where(v => v.Commit == completedByVerdictCommit)
+                .ToList();
+
+            // Zero means the pointer dangles. More than one means two records claim the same
+            // (gate, taskId, commit), which is a duplicate-record bug rather than a closure
+            // this check may wave through.
+            if (named.Count != 1)
+            {
+                return false;
+            }
+
+            if (named[0].Verdict != "pass")
+            {
+                return false;
+            }
+
+            // Stale: at the moment of closure, was there a newer evaluation the closer
+            // passed over? Verdicts issued after completedAt are outside the window on
+            // purpose -- they are later history, not evidence about this closure.
+            var availableAtClosure = forThisOrder
+                .Where(v => string.CompareOrdinal(v.EvaluatedAt, completedAt) <= 0)
                 .OrderBy(v => v.EvaluatedAt, StringComparer.Ordinal)
                 .ToList();
 
-            return matching.Count > 0 && matching[matching.Count - 1].Verdict == "pass";
+            return availableAtClosure.Count > 0
+                && availableAtClosure[availableAtClosure.Count - 1].Commit == completedByVerdictCommit;
         }
 
         /// <summary>Every evidence id a verdict cites must resolve to a record on disk.</summary>
@@ -327,29 +382,68 @@ namespace MergeSurvivor.Kernel.Tests
 
         private static IEnumerable<TestCaseData> VerdictRuleCases()
         {
-            var verdicts = new[] { ("G2", "WO-0008", "pass", "2026-08-30T09:17:37Z") };
-            yield return new TestCaseData(ClosureIsBackedByAPassingVerdict("completed", "G2", "WO-0008", verdicts), true).SetName("closure with a matching passing verdict");
-            yield return new TestCaseData(ClosureIsBackedByAPassingVerdict("completed", "G2", "WO-0009", verdicts), false).SetName("closure whose verdict is missing");
-            yield return new TestCaseData(ClosureIsBackedByAPassingVerdict("completed", "G3", "WO-0008", verdicts), false).SetName("closure citing a gate that never ruled");
-            yield return new TestCaseData(ClosureIsBackedByAPassingVerdict("dispatched", "", "WO-0009", verdicts), true).SetName("an open order needs no verdict");
-
-            // The three the first version got wrong, because its tuple carried no verdict.
-            var failOnly = new[] { ("G2", "WO-0008", "fail", "2026-08-30T09:00:00Z") };
-            yield return new TestCaseData(ClosureIsBackedByAPassingVerdict("completed", "G2", "WO-0008", failOnly), false).SetName("a lone fail verdict does not back a closure");
-
-            var passThenFail = new[]
+            // Modelled on the real shape of WO-0008: two passing verdicts for one order, the
+            // case that made the ambiguity concrete. CLOSED_AT is after both, as the live
+            // orders' completedAt is after both of theirs.
+            const string closedAt = "2026-08-30T15:30:00Z";
+            var twoPasses = new[]
             {
-                ("G2", "WO-0008", "pass", "2026-08-30T09:00:00Z"),
-                ("G2", "WO-0008", "fail", "2026-08-30T10:00:00Z"),
+                ("G2", "WO-0008", "0b3d5c3", "pass", "2026-08-30T08:58:51Z"),
+                ("G2", "WO-0008", "9132222", "pass", "2026-08-30T09:17:37Z"),
             };
-            yield return new TestCaseData(ClosureIsBackedByAPassingVerdict("completed", "G2", "WO-0008", passThenFail), false).SetName("a later fail overrides an earlier pass");
 
+            yield return new TestCaseData(ClosureNamesThePassingVerdictThatAuthorisedIt("completed", "G2", "WO-0008", "9132222", closedAt, twoPasses), true).SetName("names the verdict that exists and passed");
+
+            // The substitution the (gate, taskId) query could not see. Naming 0b3d5c3 is
+            // rejected because a later verdict existed at closure -- which independently
+            // reproduces RUL-0005 condition 4, that the premature verdict could not be the
+            // one to close WO-0008.
+            yield return new TestCaseData(ClosureNamesThePassingVerdictThatAuthorisedIt("completed", "G2", "WO-0008", "0b3d5c3", closedAt, twoPasses), false).SetName("stale: names an earlier pass while a later verdict existed at closure");
+
+            yield return new TestCaseData(ClosureNamesThePassingVerdictThatAuthorisedIt("completed", "G2", "WO-0008", "deadbee", closedAt, twoPasses), false).SetName("different verdict: names a commit no verdict carries");
+
+            var otherTask = new[] { ("G2", "WO-0009", "9132222", "pass", "2026-08-30T09:17:37Z") };
+            yield return new TestCaseData(ClosureNamesThePassingVerdictThatAuthorisedIt("completed", "G2", "WO-0008", "9132222", closedAt, otherTask), false).SetName("wrong task: a verdict at that commit exists, for another order");
+
+            var otherGate = new[] { ("G3", "WO-0008", "9132222", "pass", "2026-08-30T09:17:37Z") };
+            yield return new TestCaseData(ClosureNamesThePassingVerdictThatAuthorisedIt("completed", "G2", "WO-0008", "9132222", closedAt, otherGate), false).SetName("wrong gate: a verdict at that commit exists, from a gate the order did not close on");
+
+            var failAtNamedCommit = new[] { ("G2", "WO-0008", "9132222", "fail", "2026-08-30T09:17:37Z") };
+            yield return new TestCaseData(ClosureNamesThePassingVerdictThatAuthorisedIt("completed", "G2", "WO-0008", "9132222", closedAt, failAtNamedCommit), false).SetName("fail verdict: the named record exists and is red");
+
+            // emit-gate-verdict.sh overwrites {gate}-{task}-{commit}.json, so re-running the
+            // gate at the named commit replaces the record. This is that case, and it is why
+            // no separate contradiction clause is needed.
+            var reRunTurnedRed = new[]
+            {
+                ("G2", "WO-0008", "0b3d5c3", "pass", "2026-08-30T08:58:51Z"),
+                ("G2", "WO-0008", "9132222", "fail", "2026-08-30T11:00:00Z"),
+            };
+            yield return new TestCaseData(ClosureNamesThePassingVerdictThatAuthorisedIt("completed", "G2", "WO-0008", "9132222", closedAt, reRunTurnedRed), false).SetName("a re-run that reddened the named commit reds the closure");
+
+            var verdictAfterClosure = new[] { ("G2", "WO-0008", "9132222", "pass", "2026-08-30T16:00:00Z") };
+            yield return new TestCaseData(ClosureNamesThePassingVerdictThatAuthorisedIt("completed", "G2", "WO-0008", "9132222", closedAt, verdictAfterClosure), false).SetName("a verdict evaluated after the closure cannot have authorised it");
+
+            // fail -> fix -> pass is the normal history of a repaired defect. Naming the
+            // pass stays legal; forbidding it would make the ratchet unclosable.
             var failThenPass = new[]
             {
-                ("G2", "WO-0008", "fail", "2026-08-30T09:00:00Z"),
-                ("G2", "WO-0008", "pass", "2026-08-30T10:00:00Z"),
+                ("G2", "WO-0008", "0b3d5c3", "fail", "2026-08-30T09:00:00Z"),
+                ("G2", "WO-0008", "9132222", "pass", "2026-08-30T10:00:00Z"),
             };
-            yield return new TestCaseData(ClosureIsBackedByAPassingVerdict("completed", "G2", "WO-0008", failThenPass), true).SetName("fix then re-gate stays legal");
+            yield return new TestCaseData(ClosureNamesThePassingVerdictThatAuthorisedIt("completed", "G2", "WO-0008", "9132222", closedAt, failThenPass), true).SetName("fix then re-gate stays legal");
+
+            // The supersession policy, stated as a test so it cannot drift silently: a
+            // verdict filed after a correct closure does not retroactively invalidate it.
+            var laterFailAfterClosure = new[]
+            {
+                ("G2", "WO-0008", "9132222", "pass", "2026-08-30T09:17:37Z"),
+                ("G2", "WO-0008", "aaaaaaa", "fail", "2026-08-31T09:00:00Z"),
+            };
+            yield return new TestCaseData(ClosureNamesThePassingVerdictThatAuthorisedIt("completed", "G2", "WO-0008", "9132222", closedAt, laterFailAfterClosure), true).SetName("a fail at a later unrelated commit does not unclose a correct closure");
+
+            yield return new TestCaseData(ClosureNamesThePassingVerdictThatAuthorisedIt("completed", "G2", "WO-0009", "9132222", closedAt, twoPasses), false).SetName("closure whose verdict is missing");
+            yield return new TestCaseData(ClosureNamesThePassingVerdictThatAuthorisedIt("dispatched", "", "WO-0009", "", "", twoPasses), true).SetName("an open order needs no verdict");
 
             var known = new HashSet<string> { "EVD-0010", "EVD-0011" };
             yield return new TestCaseData(CitedEvidenceExists(new[] { "EVD-0010" }, known), true).SetName("cited evidence exists");
@@ -382,6 +476,7 @@ namespace MergeSurvivor.Kernel.Tests
                 .Select(v => (
                     Gate: v["gate"].GetValue<string>(),
                     TaskId: v["taskId"].GetValue<string>(),
+                    Commit: v["commit"].GetValue<string>(),
                     Verdict: v["verdict"].GetValue<string>(),
                     EvaluatedAt: v["evaluatedAt"].GetValue<string>()))
                 .ToList();
@@ -391,12 +486,24 @@ namespace MergeSurvivor.Kernel.Tests
                 JsonNode order = Kernel.ReadRepoJson(path);
                 string status = order["status"].GetValue<string>();
                 string gate = order["completedByGate"]?.GetValue<string>() ?? "";
+                string commit = order["completedByVerdictCommit"]?.GetValue<string>() ?? "";
+                string closedAt = order["completedAt"]?.GetValue<string>() ?? "";
                 string id = order["id"].GetValue<string>();
 
+                // Named rather than merely counted, so a 7-versus-40-character SHA reads as
+                // itself instead of as a missing verdict.
+                string candidates = string.Join(
+                    ", ",
+                    verdicts.Where(v => v.Gate == gate && v.TaskId == id)
+                        .OrderBy(v => v.EvaluatedAt, StringComparer.Ordinal)
+                        .Select(v => $"{v.Commit} ({v.Verdict} at {v.EvaluatedAt})"));
+
                 Assert.That(
-                    ClosureIsBackedByAPassingVerdict(status, gate, id, verdicts),
+                    ClosureNamesThePassingVerdictThatAuthorisedIt(status, gate, id, commit, closedAt, verdicts),
                     Is.True,
-                    $"{id} is completed but no passing {gate} verdict names it. completedByGate is a pointer; this one points at nothing, or at a verdict whose latest evaluation did not pass.");
+                    $"{id} is completed naming {gate} verdict at commit '{commit}', but that is not a passing "
+                    + $"verdict for this order that was current at {closedAt}. Verdicts on disk for ({gate}, {id}): "
+                    + (candidates.Length == 0 ? "none." : candidates + "."));
             }
         }
 

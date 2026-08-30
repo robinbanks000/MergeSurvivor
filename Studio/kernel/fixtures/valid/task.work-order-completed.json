@@ -13,5 +13,6 @@
   "createdAt": "2026-08-27T08:00:00Z",
   "status": "completed",
   "completedByGate": "G2",
+  "completedByVerdictCommit": "a41f0c2",
   "completedAt": "2026-08-27T08:40:00Z"
 }

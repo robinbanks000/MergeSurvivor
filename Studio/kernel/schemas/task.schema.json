@@ -82,16 +82,21 @@
           ]
         },
         "completedByGate": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/gateId" },
+        "completedByVerdictCommit": {
+          "description": "The commit of the gate verdict that authorised this closure. A gate verdict has no id of its own and needs none: it is identified by (gate, taskId, commit), and an order already carries the first two in completedByGate and id -- so the commit is the only missing coordinate, and adding it completes the key without restating anything that could then disagree. Until it existed, completedByGate named a gate but not a verdict: WO-0008 accumulated two passing verdicts and the order file could not say which one closed it, so the knowledge lived only in RUL-0008's prose and the cross-check had to query for a satisfying verdict rather than resolve the named one. RUL-0008 matter 3 filed that defect against itself and called it the lead architecture item.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$"
+        },
         "completedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" }
       },
       "allOf": [
         {
-          "description": "A task is only complete when a gate said so. Completion without a gate verdict is exactly the self-certification the architecture forbids.",
+          "description": "A task is only complete when a gate said so, and it must say WHICH time the gate said so. Completion without a gate verdict is exactly the self-certification the architecture forbids; completion that cannot name its verdict is that same claim with the evidence left ambiguous.",
           "if": {
             "properties": { "status": { "const": "completed" } },
             "required": ["status"]
           },
-          "then": { "required": ["completedByGate", "completedAt"] }
+          "then": { "required": ["completedByGate", "completedAt", "completedByVerdictCommit"] }
         }
       ]
     },
