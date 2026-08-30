@@ -1,0 +1,14 @@
+{
+  "id": "EVD-0012",
+  "tier": "T0",
+  "producedBy": "ceo-orchestrator",
+  "at": "2026-08-30T09:01:53Z",
+  "verdict": "pass",
+  "summary": "WO-0009 criterion 13 second clause, per RUL-0004: the git diff its author required and wrote specifically to exclude discharge by reading. Run across WO-0009 chain e063b68..eb5aa05. `git diff --numstat` on Assets/Tests/Core.Tests/RunStateTests.cs, RunStateVerificationTests.cs and WO0008CriteriaVerificationTests.cs returns empty for all three -- zero diff each. `git diff ... | grep \"^-\"` over the whole of Assets/Tests/Core.Tests across the same range returns 0 removed or altered lines. The window also contains WO-0010 work (bf60af6), whose additions appear as PlayerMotorTests.cs +57/-0 and WaveSchedulerTests.cs +133/-0, plus WO0009CriteriaVerificationTests.cs +457/-0; every one is pure addition. Previously reported in conversation and in a commit message only, which RUL-0004 correctly refused as discharge.",
+  "commit": "83952bb",
+  "taskId": "WO-0009",
+  "metrics": {
+    "filesChecked": 3,
+    "linesRemovedOrAltered": 0
+  }
+}
