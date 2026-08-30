@@ -285,6 +285,44 @@ namespace MergeSurvivor.Core.Tests
         }
 
         [Test]
+        public void Binary32AdditionAbsorbsTheIntervalAtTheScaleCriterion11Names()
+        {
+            // The PREMISE the guard in Tick rests on, pinned as a test because nothing
+            // tested it and it turns out not to hold everywhere.
+            //
+            // Criterion 11 clause (2) states it as settled fact -- "verified: with
+            // _timeUntilNextSpawn at 1f - 1e8f, adding 2f returns a bit-identical value"
+            // -- and Tick's doc comment repeats it. Under .NET on x64 that is true:
+            // 1f - 1e8f rounds to -1e8f exactly (ulp is 8 at that magnitude), and
+            // -1e8f + 2f rounds back to the same bits. The guard is built on it.
+            //
+            // G3 run 46 says it does not hold in Unity PlayMode: the guard did not fire
+            // and WaveSchedulerTests.cs:311 failed on the very dt this premise covers,
+            // while the same source passed under .NET and under Unity EditMode.
+            //
+            // This test separates the two ways that can happen, which need different
+            // fixes: if `advanced`'s BITS differ from `timer`'s, the runtime's binary32
+            // addition genuinely produces a different value; if the bits are identical
+            // but the comparison still says greater, the addition and comparison were
+            // evaluated at wider precision and never rounded to binary32 -- a fact about
+            // expression evaluation, not about the arithmetic. The message prints both,
+            // so the failure names which one rather than leaving it to be inferred.
+            float timer = 1f - 1e8f;
+            float interval = 2f;
+            float advanced = timer + interval;
+
+            int timerBits = BitConverter.SingleToInt32Bits(timer);
+            int advancedBits = BitConverter.SingleToInt32Bits(advanced);
+
+            Assert.That(
+                advanced > timer,
+                Is.False,
+                $"binary32 addition was expected to absorb the interval at this scale. "
+                + $"timer={timer:R} (bits 0x{timerBits:X8}), advanced={advanced:R} (bits 0x{advancedBits:X8}), "
+                + $"bits {(timerBits == advancedBits ? "IDENTICAL -- so the comparison was evaluated at wider precision than binary32" : "DIFFER -- so this runtime's binary32 addition genuinely advances here")}.");
+        }
+
+        [Test]
         public void RejectsAbsorbingDeltaTimeThatWouldNeverAdvanceTheSchedule()
         {
             // RATCHET (CHA-0001 / RUL-0003 matter 4(i)): the specification requires
