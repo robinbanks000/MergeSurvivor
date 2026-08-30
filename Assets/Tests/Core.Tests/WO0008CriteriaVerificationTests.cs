@@ -302,27 +302,28 @@ namespace MergeSurvivor.Core.Tests
                 "After sequence with rejected ticks, ElapsedSeconds must be finite");
         }
 
-        // Note on Criterion 6: Mathematically, it is possible to overflow ElapsedSeconds to infinity
-        // by adding float.MaxValue multiple times. However, the criterion as stated requires that
-        // "after any sequence... ElapsedSeconds is finite". This appears to create a situation
-        // where the criterion cannot be satisfied (overflow is possible) or the criterion implicitly
-        // bounds sequences to those that don't overflow. The implementation does not actively prevent
-        // overflow, so this may be a hole in the criterion itself.
-
         [Test]
         public void Criterion6_OverflowPossibilityNote()
         {
-            // This test documents a mathematical fact: repeatedly adding large finite values
-            // can cause floating point overflow to infinity.
+            // The specification requires that ElapsedSeconds is finite after any sequence
+            // whose exact real-valued sum of accepted dt does not exceed float.MaxValue.
+            // This test verifies the boundary: two ticks of exactly float.MaxValue / 2f sum to
+            // exactly float.MaxValue without overflow, as both partial sums and the total are
+            // exactly representable in binary32.
             var run = new RunState();
-            run.Tick(float.MaxValue);
-            run.Tick(float.MaxValue);
+            var halfMax = float.MaxValue / 2f;
+            run.Tick(halfMax);
+            run.Tick(halfMax);
 
-            // This WILL be infinite due to float overflow
-            Assert.That(float.IsFinite(run.ElapsedSeconds), Is.False,
-                "This test documents that ElapsedSeconds CAN overflow when adding very large finite values. " +
-                "Criterion 6 may have a hole: it requires ElapsedSeconds to be finite 'after any sequence' " +
-                "of finite non-negative ticks, but overflow is mathematically unavoidable with sufficiently large sums.");
+            var elapsedAfter = run.ElapsedSeconds;
+            Console.WriteLine($"ElapsedSeconds after two Tick(float.MaxValue / 2f) calls: {elapsedAfter}");
+            Console.WriteLine($"float.MaxValue: {float.MaxValue}");
+            Console.WriteLine($"Are they equal? {elapsedAfter == float.MaxValue}");
+
+            Assert.That(float.IsFinite(elapsedAfter), Is.True,
+                "ElapsedSeconds must be finite when exact sum does not exceed float.MaxValue");
+            Assert.That(elapsedAfter, Is.EqualTo(float.MaxValue),
+                "ElapsedSeconds must equal the exact sum of accepted dt values");
         }
 
         // ============================================================================
