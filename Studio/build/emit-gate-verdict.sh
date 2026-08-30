@@ -79,6 +79,12 @@ fi
 rm -f "/tmp/gate-verdict-$$.log"
 echo "Verdict: $VERDICT" >&2
 
+# git does not track empty directories, so the verdict directory does not survive
+# a clone or a commit that contains no verdict. emit-evidence.sh has always done
+# this; I left it out and the very first verdict failed on it after the gate had
+# already run and passed.
+mkdir -p Studio/state/verdicts
+
 OUT="Studio/state/verdicts/${GATE}-${TASK}-${COMMIT}.json"
 
 python3 - "$OUT" "$GATE" "$TASK" "$VERDICT" "$AT" "$BY" "$EVIDENCE" "$COMMIT" "$FAILED_CHECKS" <<'PY'
