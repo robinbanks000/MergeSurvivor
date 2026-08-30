@@ -303,7 +303,7 @@ namespace MergeSurvivor.Core.Tests
         }
 
         [Test]
-        public void Criterion6_OverflowPossibilityNote()
+        public void Criterion6_ExactSumAtMaxValueIsFiniteAndExact()
         {
             // The specification requires that ElapsedSeconds is finite after any sequence
             // whose exact real-valued sum of accepted dt does not exceed float.MaxValue.
