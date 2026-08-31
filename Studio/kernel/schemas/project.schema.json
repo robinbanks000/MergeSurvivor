@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mergesurvivor.studio/kernel/project.schema.json",
+  "title": "Project registry",
+  "description": "The projects the studio operates, and the boundary around each one. JARVIS is the studio layer; a project is a product underneath it. This file is what makes that separation checkable rather than merely intended: each project declares the paths it owns, and WorkforceCrossCheckTests refuses overlapping ownership and refuses any project claiming a path inside the studio layer. The rule it enforces in both directions is the founder's: studio tooling never ships inside a product, and no product's internals leak into the studio layer. A second project is added by appending an entry here -- not by restructuring anything above it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "updatedAt", "studioPaths", "projects"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "updatedAt": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp" },
+    "studioPaths": {
+      "description": "Paths belonging to the studio layer itself -- the kernel, the constitution, the gate machinery and the cockpit. No project may claim any of these, and the studio layer must not reach into a project's own source beyond the verification paths a gate needs.",
+      "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlobList"
+    },
+    "projects": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/project" }
+    }
+  },
+  "$defs": {
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "kind", "status", "owns", "verifiedByGates", "summary"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,40}$" },
+        "name": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
+        "kind": {
+          "type": "string",
+          "enum": ["game", "tool", "service", "library"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "paused", "archived", "planned"]
+        },
+        "summary": { "type": "string", "minLength": 20 },
+        "owns": {
+          "description": "The paths this project owns. Nothing outside them is the project's, and nothing inside them belongs to the studio layer.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/pathGlobList"
+        },
+        "verifiedByGates": {
+          "description": "Which gates rule on this project. A project with no gate has no definition of done.",
+          "type": "array",
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/gateId" },
+          "uniqueItems": true
+        },
+        "divisions": {
+          "description": "Divisions currently doing work on this project. Absent means the whole roster may serve it.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/divisionId" }
+        },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

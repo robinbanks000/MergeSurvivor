@@ -8,7 +8,7 @@ using NUnit.Framework;
 namespace MergeSurvivor.Kernel.Tests
 {
     /// <summary>
-    /// Proves the hundred-agent organisation is real rather than nominal.
+    /// Proves the organisation is real rather than nominal, at whatever size it is.
     ///
     /// These are the checks that make "no filler agents" enforceable instead of
     /// aspirational: an agent whose measurable output duplicates another's, whose
@@ -16,6 +16,10 @@ namespace MergeSurvivor.Kernel.Tests
     /// the build. Structure alone cannot prove a role is worth having — but it can
     /// prove that a role is distinguishable, reachable, funded and able to act, and
     /// those four are where filler is caught.
+    ///
+    /// Since ADR-0005 they carry that load alone: the roster has no fixed size, so the
+    /// count is no longer a backstop and these checks are the only thing standing
+    /// between a justified hire and sprawl.
     /// </summary>
     [TestFixture]
     public class OrgCrossCheckTests
@@ -51,13 +55,51 @@ namespace MergeSurvivor.Kernel.Tests
         private static Dictionary<string, JsonNode> ById() =>
             AllAgents().ToDictionary(Id, a => a);
 
+        private static string Status(JsonNode a) => a["status"].GetValue<string>();
+
+        /// <summary>
+        /// Everyone still on the roster: active or dormant, but not retired.
+        ///
+        /// The distinction matters to the distinctness checks specifically. A retired
+        /// agent stays in the registry by design -- other agents' dependsOn and
+        /// challenges lists still name its id, and generate-agent-definitions.sh
+        /// resolves display names from the whole file, so deleting the record breaks
+        /// both. But leaving it inside the duplicate-output check made retirement
+        /// one-way in practice: retire an agent and its measurableOutput is reserved
+        /// forever, so no successor could ever claim the work it used to do. A roster
+        /// that can only grow is the thing ADR-0004 set out to prevent, and it would
+        /// have arrived through the mechanism meant to allow shrinking.
+        /// </summary>
+        private static List<JsonNode> StaffedAgents() =>
+            AllAgents().Where(a => Status(a) != "retired").ToList();
+
         // ---------- the roster is what it claims to be ----------
 
         [Test]
-        public void RosterIsExactlyOneHundredAgents()
+        public void EveryDivisionInTheOrgChartIsActuallyStaffed()
         {
-            Assert.That(AllAgents().Count, Is.EqualTo(100),
-                "The roster size is a deliberate commitment. Changing it needs an ADR, not a quiet edit.");
+            // What replaced RosterIsExactlyOneHundredAgents, and it is a weaker claim on
+            // purpose. ADR-0005 removed the fixed count: the roster may grow past a
+            // hundred to close a filed capability gap, or shrink below it as roles
+            // retire, and neither direction is a defect. Asserting a number would now
+            // fail on correct work.
+            //
+            // What still must hold is that the org chart is not aspirational. A division
+            // defined in org.json with nobody in it is a mandate no agent carries, and
+            // that failure is silent -- the work simply never gets done and no check
+            // notices. So the shape is asserted where the size no longer is.
+            var staffed = StaffedAgents()
+                .Select(a => a["division"].GetValue<string>())
+                .ToHashSet();
+
+            foreach (JsonNode division in Org["divisions"].AsArray())
+            {
+                string id = division["id"].GetValue<string>();
+                Assert.That(staffed, Contains.Item(id),
+                    $"Division {id} is defined in the org chart with no agent in it, so its mandate has no owner.");
+            }
+
+            Assert.That(StaffedAgents(), Is.Not.Empty, "The roster is empty.");
         }
 
         [Test]
@@ -192,7 +234,7 @@ namespace MergeSurvivor.Kernel.Tests
         {
             var seen = new Dictionary<string, string>();
 
-            foreach (JsonNode agent in AllAgents())
+            foreach (JsonNode agent in StaffedAgents())
             {
                 foreach (string output in Strings(agent["measurableOutput"]))
                 {
@@ -213,7 +255,7 @@ namespace MergeSurvivor.Kernel.Tests
             // whose outputs are worded differently but describe the same artifact, which is
             // how a roster quietly acquires filler that passes a duplicate check.
             const double threshold = 0.8;
-            List<JsonNode> agents = AllAgents();
+            List<JsonNode> agents = StaffedAgents();
             var offenders = new List<string>();
 
             for (int i = 0; i < agents.Count; i++)
@@ -244,7 +286,7 @@ namespace MergeSurvivor.Kernel.Tests
         {
             var seen = new Dictionary<string, string>();
 
-            foreach (JsonNode agent in AllAgents())
+            foreach (JsonNode agent in StaffedAgents())
             {
                 string key = Normalise(agent["successMetric"].GetValue<string>());
 
@@ -418,7 +460,9 @@ namespace MergeSurvivor.Kernel.Tests
         [Test]
         public void MostOfTheRosterRunsOnTheCheapestModel()
         {
-            List<JsonNode> agents = AllAgents();
+            // Staffed only: a retired agent costs nothing, so counting it either way
+            // misreports what the studio actually spends per period.
+            List<JsonNode> agents = StaffedAgents();
             int haiku = agents.Count(a => a["model"].GetValue<string>() == "haiku");
 
             Assert.That(haiku, Is.GreaterThan(agents.Count / 2),
@@ -467,6 +511,91 @@ namespace MergeSurvivor.Kernel.Tests
 
             Assert.That(actual, Is.EquivalentTo(declared),
                 "The set of active agents blocked on dormant dependencies has changed and project state no longer reflects it.");
+        }
+
+        [Test]
+        public void EveryRetiredAgentSaysWhyAndWhen()
+        {
+            // The counterpart of existsBecause, and the schema enforces it too. It is
+            // repeated here because the schema only sees one file at a time and this is
+            // the check a reader of the roster will actually look at, but mainly because
+            // "retired" was in the status enum for weeks while nothing anywhere read it:
+            // an agent could be taken out of circulation leaving no reason on the record,
+            // which is exactly how a role gets re-created a quarter later.
+            foreach (JsonNode agent in AllAgents().Where(a => Status(a) == "retired"))
+            {
+                Assert.That(agent["retiredBecause"], Is.Not.Null,
+                    $"{Id(agent)} is retired without saying why. Hiring needs a reason; so does firing.");
+                Assert.That(agent["retiredAt"], Is.Not.Null,
+                    $"{Id(agent)} is retired with no date, so no audit can place it in time.");
+            }
+        }
+
+        [Test]
+        public void NoLiveAgentDependsOnOrChallengesARetiredOne()
+        {
+            // A dormant dependency is a declared wait and EveryActiveToDormantDependency-
+            // IsDeclaredAsABlocker already governs it. A retired dependency is different
+            // in kind: nothing is coming, so the waiting agent is not blocked but broken,
+            // and it would look identical to an agent that simply has nothing to do.
+            Dictionary<string, JsonNode> byId = ById();
+            var offenders = new List<string>();
+
+            foreach (JsonNode agent in StaffedAgents())
+            {
+                foreach (string target in Strings(agent["dependsOn"]).Concat(Strings(agent["challenges"])))
+                {
+                    if (Status(byId[target]) == "retired")
+                    {
+                        offenders.Add($"{Id(agent)} -> {target}");
+                    }
+                }
+            }
+
+            Assert.That(offenders, Is.Empty,
+                "These agents point at a retired agent, whose output is never coming:\n"
+                + string.Join("\n", offenders)
+                + "\nRetire the dependants too, or repoint them at whatever replaced it.");
+        }
+
+        [Test]
+        public void ARetiredAgentIsNeverStillNamedAsADivisionBoss()
+        {
+            // Retirement is a status change rather than a deletion, which means a retired
+            // boss stays readable in the registry and org.json can keep pointing at it
+            // without anything else objecting. Everyone under it would then report to a
+            // role that no longer works.
+            Dictionary<string, JsonNode> byId = ById();
+
+            foreach (JsonNode division in Org["divisions"].AsArray())
+            {
+                string bossId = division["boss"].GetValue<string>();
+                if (!byId.ContainsKey(bossId))
+                {
+                    continue; // EveryDivisionBossIsTheOneNamedInTheOrgChart reports this.
+                }
+
+                Assert.That(Status(byId[bossId]), Is.Not.EqualTo("retired"),
+                    $"Division {division["id"]} is still run by {bossId}, who is retired.");
+            }
+        }
+
+        [Test]
+        public void ARetiredAgentsReplacementExistsAndIsNotItselfRetired()
+        {
+            var byId = ById();
+
+            foreach (JsonNode agent in AllAgents().Where(a => a["replacedBy"] != null))
+            {
+                string replacement = agent["replacedBy"].GetValue<string>();
+
+                Assert.That(byId.ContainsKey(replacement), Is.True,
+                    $"{Id(agent)} names {replacement} as its replacement, who is not in the roster.");
+                Assert.That(replacement, Is.Not.EqualTo(Id(agent)),
+                    $"{Id(agent)} is its own replacement.");
+                Assert.That(Status(byId[replacement]), Is.Not.EqualTo("retired"),
+                    $"{Id(agent)} was replaced by {replacement}, who is also retired. The capability has no owner.");
+            }
         }
 
         [Test]

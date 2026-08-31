@@ -67,6 +67,19 @@
           "description": "The condition under which a dormant agent starts working. Required while dormant, so nobody has to guess what the role is waiting for.",
           "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString"
         },
+        "retiredBecause": {
+          "description": "Why the role stopped being worth having. Required while retired, and the exact counterpart of existsBecause: a roster that demands a reason to hire and none to fire records only half of its own history, and the half it drops is the half that would let the same role be re-created next quarter. agent-performance-auditor proposes retirement; only a constitution edit performs it.",
+          "type": "string",
+          "minLength": 40
+        },
+        "retiredAt": {
+          "description": "When retirement took effect. Retirement is a status change, never a deletion -- other agents' dependsOn and challenges lists still name this id, and generate-agent-definitions.sh resolves display names from the whole registry, so removing the record breaks both.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/timestamp"
+        },
+        "replacedBy": {
+          "description": "The agent that took over this one's work, where the retirement was a replacement rather than the retirement of the capability itself. Absent means the capability is gone too, which is the larger claim and should be visible as one.",
+          "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/agentId"
+        },
         "purpose": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
         "existsBecause": {
           "description": "Why this role is not covered by an existing agent. Not decoration: agent-performance-auditor measures against this, and an agent whose justification no longer holds is proposed for retirement.",
@@ -193,6 +206,11 @@
           "description": "Specialists carry the work; a boss that also implements ends up reviewing itself.",
           "if": { "properties": { "tier": { "enum": ["ceo", "boss"] } }, "required": ["tier"] },
           "then": { "properties": { "mayEditProductionCode": { "const": false } } }
+        },
+        {
+          "description": "A retired agent must say why and when. Dormancy already carries this discipline through activatesWhen; retirement had the status value and none of the accountability, which made 'retired' the one way to take an agent out of circulation without writing down a reason.",
+          "if": { "properties": { "status": { "const": "retired" } }, "required": ["status"] },
+          "then": { "required": ["retiredBecause", "retiredAt"] }
         }
       ]
     }

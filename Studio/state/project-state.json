@@ -3,7 +3,7 @@
   "updatedAt": "2026-08-29T12:00:00Z",
   "phase": {
     "current": 3,
-    "name": "Hundred-agent organisation",
+    "name": "Dynamic agent organisation",
     "blockedOn": [
       "PILLARS.md and NON_GOALS.md do not exist; the entire product-design division (11 agents) and G1 cannot operate",
       "Core has no combat model, so four balance and simulation agents remain dormant",

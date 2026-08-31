@@ -30,6 +30,7 @@ THREE RULES THIS TOOL IS BUILT ON.
    tooling must never become the reason the studio is expensive.
 """
 
+import collections
 import html
 import json
 import subprocess
@@ -121,6 +122,36 @@ STATES = {
     "unavailable": ("UNAVAILABLE", "The source exists, but a checkout cannot reach it."),
     "unknown": ("UNKNOWN", "No record exists."),
 }
+
+
+# The second vocabulary, and it answers a different question from STATES.
+#
+# STATES says how far a claim reaches -- whether the page could establish it at all.
+# CLAIMS says what KIND of statement is being made once it can. A dashboard that mixes
+# "14 evidence records exist" with "you should wire the validator into G2" without
+# marking which is which is doing the most dangerous thing an instrument can do: lending
+# the authority of a measurement to an opinion. Every sentence on this page that is not
+# a rendered record now carries one of these, and the ones that cost money -- inference,
+# recommendation, proposal -- are the ones a reader is entitled to discount.
+CLAIMS = {
+    "fact": ("FACT", "Read directly from a record in this checkout."),
+    "observation": ("OBSERVATION", "Derived by counting or comparing records, with no judgement added."),
+    "inference": ("INFERENCE", "A conclusion drawn from those records. It could be wrong."),
+    "recommendation": ("RECOMMENDATION", "A suggested action. Nothing here has been authorised or taken."),
+    "proposal": ("PROPOSAL", "A filed proposal awaiting the authorisation path. Not a decision."),
+}
+
+
+def claim_chip(kind, why=None):
+    label, default_why = CLAIMS[kind]
+    return f'<span class="chip claim-{kind}" title="{esc(why or default_why)}">{esc(label)}</span>'
+
+
+def claim_legend():
+    items = "".join(
+        f'<li>{claim_chip(k)}<span class="dim">{esc(why)}</span></li>'
+        for k, (_, why) in CLAIMS.items())
+    return f'<ul class="legend">{items}</ul>'
 
 
 def state_chip(kind, why=None):
@@ -219,8 +250,12 @@ def table(headers, rows, widths=None):
     """
     if not rows:
         return '<p class="empty">Nothing recorded.</p>'
-    cols = ("<colgroup>" + "".join(f'<col style="width:{w}">' for w in widths)
-            + "</colgroup>") if widths else ""
+    # A None width means "let the content decide", which is what an identity column
+    # needs: paired with code.id below it, the browser sizes the column to the longest
+    # identifier instead of to whatever ch value someone last guessed.
+    cols = ("<colgroup>" + "".join(
+        "<col>" if w is None else f'<col style="width:{w}">' for w in widths)
+        + "</colgroup>") if widths else ""
     head = "".join(f"<th scope=\"col\">{esc(h)}</th>" for h in headers)
     body = ""
     for r in rows:
@@ -296,13 +331,14 @@ def panel_gates(gates_doc, verdicts):
         override = g.get("overridableBy") or []
         rows.append([
             f'<strong>{esc(gid)}</strong> {esc(g.get("name", ""))}',
-            f'<code>{esc(g.get("owner", "?"))}</code>',
+            f'<code class="id">{esc(g.get("owner", "?"))}</code>',
             status,
             detail,
-            chip("nobody", "ok") if override == [] else ", ".join(f"<code>{esc(o)}</code>" for o in override),
+            chip("nobody", "ok") if override == []
+            else "<br>".join(f'<code class="id">{esc(o)}</code>' for o in override),
         ])
     return table(["Gate", "Owner", "Latest recorded verdict", "At", "Overridable by"], rows,
-                 widths=["21%", "19%", "17%", "24%", "19%"])
+                 widths=["24%", None, "16%", "26%", None])
 
 
 def panel_orders(orders, verdicts):
@@ -498,7 +534,7 @@ def panel_events(events):
             long_text(e.get("summary")),
         ])
     return table(["Event", "At", "Type", "Actor", "Subject", "Summary"], rows,
-                 widths=["16ch", "16ch", "17ch", "17ch", "15ch", "auto"])
+                 widths=["17ch", "16ch", "18ch", "18ch", "15ch", "auto"])
 
 
 def panel_budget(budgets):
@@ -524,16 +560,17 @@ def panel_audit(verdicts, evidence):
     rows = []
     for path, v in sorted(verdicts, key=lambda t: t[1].get("evaluatedAt", ""), reverse=True):
         rows.append([
-            f'<code>{esc(Path(path).name)}</code>',
+            f'<code class="id">{esc(Path(path).name)}</code>',
             chip(v.get("verdict", "?"), "ok" if v.get("verdict") == "pass" else "bad"),
             f'<code>{esc(v.get("taskId", "?"))}</code>',
             f'<code>{esc(v.get("commit", "?"))}</code>',
-            f'<code>{esc(v.get("evaluatedBy", "?"))}</code>',
-            ", ".join(f'<code>{esc(e)}</code>' for e in (v.get("evidence") or [])),
+            f'<code class="id">{esc(v.get("evaluatedBy", "?"))}</code>',
+            "<br>".join(f'<code>{esc(e)}</code>' for e in (v.get("evidence") or []))
+            or '<span class="dim">&mdash;</span>',
         ])
     return (f'<p class="note">{len(verdicts)} gate verdict(s), {len(evidence)} evidence record(s) on disk.</p>'
             + table(["Record", "Verdict", "Order", "Commit", "Issued by", "Evidence"], rows,
-                    widths=["auto", "11ch", "13ch", "13ch", "22ch", "20ch"]))
+                    widths=[None, "11ch", "13ch", "13ch", None, "16ch"]))
 
 
 def stat(label, value, sub=None, tone="", href=None):
@@ -599,6 +636,489 @@ def panel_pulse(f):
     return f'<div class="stats">{"".join(tiles)}</div>'
 
 
+def answer(question, claim, body, sources=()):
+    src = ""
+    if sources:
+        src = ('<p class="src">Read from '
+               + ", ".join(f'<code>{esc(x)}</code>' for x in sources) + "</p>")
+    return (f'<article class="qa" id="q-{esc(question_slug(question))}">'
+            f'<h3>{esc(question)}</h3>'
+            f'<div class="ans">{claim_chip(claim)}<div class="body">{body}{src}</div></div>'
+            "</article>")
+
+
+def question_slug(q):
+    return "".join(c if c.isalnum() else "-" for c in q.lower()).strip("-")[:40]
+
+
+def panel_briefing(f):
+    """
+    The standing questions, answered from the records rather than from a conversation.
+
+    This is the closest thing the page has to asking JARVIS something, and it is important
+    to be exact about what it is and is not. It is not a chat: nothing here reaches a
+    model, and there is no box to type in, because a box that answered from anything other
+    than this checkout would be able to say things the repository cannot support -- which
+    is the one failure mode the whole page is built against.
+
+    What it is instead: the nine questions a founder actually opens this page to ask, each
+    answered at build time from the same records every other panel renders, each labelled
+    with what kind of claim the answer is, and each naming the files it was read from so
+    the answer can be checked rather than trusted. Regenerate the page and the answers move
+    with the state. An answer nothing on disk supports says so.
+    """
+    out = []
+    queue = f["queue"]
+    esc_ul = lambda items: "<ul>" + "".join(f"<li>{esc(i)}</li>" for i in items) + "</ul>"
+
+    # --- what needs my attention ---------------------------------------------
+    if queue or f["open_escalations"]:
+        body = ""
+        if queue:
+            body += f"<p>{len(queue)} item(s) only the founder can clear:</p>" + esc_ul(queue)
+        if f["open_escalations"]:
+            body += ("<p>Open escalations:</p><ul>" + "".join(
+                f'<li><code>{esc(e.get("id", "?"))}</code> {esc(e.get("question", ""))}</li>'
+                for e in f["open_escalations"]) + "</ul>")
+    else:
+        body = "<p>Nothing is waiting on the founder.</p>"
+    out.append(answer("What needs my attention?", "fact", body,
+                      ["Studio/state/project-state.json", "Studio/state/escalations/"]))
+
+    # --- what is blocked ------------------------------------------------------
+    body = ""
+    if f["blocked"]:
+        body += f"<p>The studio records {len(f['blocked'])} blocker(s):</p>" + esc_ul(f["blocked"])
+    if f["deps"]:
+        body += (f"<p>{len(f['deps'])} active agent(s) wait on a dependency that is itself "
+                 f"dormant:</p><ul>" + "".join(f"<li><code>{esc(d)}</code></li>" for d in f["deps"])
+                 + "</ul>")
+    blocked_backlog = [b for b in f["backlog"] if b.get("status") == "blocked"]
+    if blocked_backlog:
+        body += ("<p>Backlog items marked blocked:</p><ul>" + "".join(
+            f'<li><code>{esc(b.get("id"))}</code> {esc(b.get("title", ""))}</li>'
+            for b in blocked_backlog) + "</ul>")
+    out.append(answer("What is blocked?", "fact", body or "<p>Nothing is recorded as blocked.</p>",
+                      ["Studio/state/project-state.json"]))
+
+    # --- what are you working on ---------------------------------------------
+    moving = [b for b in f["backlog"] if b.get("status") in ("in_progress", "dispatched")]
+    pending = [b for b in f["backlog"] if b.get("status") == "gate_pending"]
+    body = ""
+    if moving:
+        body += ("<p>In flight:</p><ul>" + "".join(
+            f'<li><code>{esc(b.get("id"))}</code> {esc(b.get("title", ""))} '
+            f'&mdash; <code>{esc(b.get("assignedTo", "unassigned"))}</code></li>'
+            for b in moving) + "</ul>")
+    if pending:
+        body += ("<p>Waiting on a gate:</p><ul>" + "".join(
+            f'<li><code>{esc(b.get("id"))}</code> {esc(b.get("title", ""))}</li>'
+            for b in pending) + "</ul>")
+    body = body or "<p>Nothing is in flight.</p>"
+    body += (f'<p class="dim">This is what the backlog records, not live process state. '
+             f'Whether an agent is running right now is '
+             + unavailable("No process supervisor writes to this repository. A checkout cannot "
+                           "observe a running agent.") + ".</p>")
+    out.append(answer("What are you working on?", "fact", body,
+                      ["Studio/state/project-state.json"]))
+
+    # --- which agents are failing --------------------------------------------
+    body = ("<p>No failure records exist. " + unknown("Studio/state/failures holds no FAIL "
+            "records, so no agent has ever had a failure filed against it.") + "</p>")
+    blocked_agents = [a for a in ((f["state"] or {}).get("agentStatus") or [])
+                      if a.get("state") == "blocked"]
+    if blocked_agents:
+        body += ("<p>Agents recorded as blocked:</p><ul>" + "".join(
+            f'<li><code>{esc(a.get("agent"))}</code></li>' for a in blocked_agents) + "</ul>")
+    body += (f'<p class="dim">Measurement against declared success metrics is '
+             + unavailable("agent-performance-auditor files the scorecards that would answer "
+                           "this. None exist on disk.") + ". Recorded activity per agent is in "
+             "Agent activity.</p>")
+    out.append(answer("Which agents are failing?", "fact", body,
+                      ["Studio/state/failures/", "Studio/state/project-state.json"]))
+
+    # --- capability gaps ------------------------------------------------------
+    if f["gaps"]:
+        openish = [g for _, g in f["gaps"] if g.get("status") in ("open", "proposed")]
+        body = (f"<p>{len(f['gaps'])} gap record(s) filed, {len(openish)} still open:</p><ul>"
+                + "".join(f'<li><code>{esc(g.get("id"))}</code> {esc(g.get("capability", "")[:180])}</li>'
+                          for _, g in f["gaps"]) + "</ul>")
+    else:
+        body = ("<p>None filed. " + unknown("Studio/state/gaps holds no GAP records.") + "</p>")
+    out.append(answer("Do we have a capability gap?", "observation", body,
+                      ["Studio/state/gaps/"]))
+
+    # --- what changed ---------------------------------------------------------
+    if f["events"]:
+        body = ("<p>The ordered event log holds "
+                f"{len(f['events'])} entr(y/ies):</p><ul>" + "".join(
+            f'<li><code>{esc(e.get("at", ""))}</code> <code>{esc(e.get("type", "?"))}</code> '
+            f'{esc(e.get("summary", ""))}</li>'
+            for _, e in sorted(f["events"], key=lambda t: t[1].get("seq") or 0)) + "</ul>")
+    else:
+        body = "<p>" + unknown("Studio/state/events holds no EVT records.") + "</p>"
+    body += (f'<p class="dim">The event log is the studio\'s own record of what happened. It is '
+             f'not the git history, and the two can disagree: an agent that acts without filing '
+             f'an event leaves no trace here. {len(f["events"])} event(s) against '
+             f'{f["commits"]} commit(s) on this branch is itself worth noticing.</p>')
+    out.append(answer("What changed?", "fact", body, ["Studio/state/events/"]))
+
+    # --- what happened today --------------------------------------------------
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    todays = [e for _, e in f["events"] if str(e.get("at", "")).startswith(today)]
+    if todays:
+        body = "<ul>" + "".join(f'<li>{esc(e.get("summary", ""))}</li>' for e in todays) + "</ul>"
+    else:
+        body = (f"<p>No event carries today's date ({esc(today)}). "
+                + unknown("Either nothing was filed today, or work happened without an event "
+                          "record. This page cannot tell those apart.") + "</p>")
+    out.append(answer("What happened today?", "fact", body, ["Studio/state/events/"]))
+
+    # --- why did a task fail --------------------------------------------------
+    fails = [(_p, v) for _p, v in f["verdicts"] if v.get("verdict") != "pass"]
+    if fails:
+        body = "<ul>" + "".join(
+            f'<li><code>{esc(v.get("taskId"))}</code> failed {esc(v.get("gate"))} at '
+            f'<code>{esc(v.get("commit"))}</code></li>' for _p, v in fails) + "</ul>"
+    else:
+        body = (f"<p>Every gate verdict on disk is a pass ({len(f['verdicts'])} record(s)), so no "
+                f"task has a recorded failure to explain. Rulings that withheld a gate are a "
+                f"different thing and there are {len(f['not_ready'])} of those &mdash; see Open "
+                f"questions.</p>")
+    body += (f'<p class="dim">A failing CI run is not visible here: '
+             + unavailable("CI results live in GitHub Actions and do not commit back.") + ".</p>")
+    out.append(answer("Why did this task fail?", "fact", body,
+                      ["Studio/state/verdicts/", "Studio/state/rulings/"]))
+
+    # --- recommendations ------------------------------------------------------
+    recs = []
+    if queue:
+        recs.append(
+            "Clear the founder queue in the order it is written. The first item &mdash; authoring "
+            "PILLARS.md and NON_GOALS.md &mdash; is the highest-leverage of the three: the product-"
+            "design division's 11 agents and gate G1 both name it as their activation precondition, "
+            "so it unblocks more of the roster than the other two together.")
+    for _, g in f["gaps"]:
+        if g.get("status") == "open":
+            recs.append(
+                f'Decide {esc(g.get("id"))} rather than leaving it open. A capability gap with no '
+                f'ruling neither gets staffed nor gets closed, and the work it names stays unowned '
+                f'in the meantime.')
+    if f["jarvis_ungated"]:
+        recs.append(
+            "Wire <code>build-jarvis.py --check</code> into <code>Studio/build/gate-g2.sh</code>. "
+            "It is the validator that enforces this page's own honesty vocabulary and no gate runs "
+            "it, so the page can start lying between one commit and the next without anything "
+            "objecting. This is also the concrete cost of GAP-0001 being open.")
+    if f["deps"]:
+        recs.append(
+            f'{len(f["deps"])} active agent(s) depend on a dormant one. Each is a real wait rather '
+            f'than a defect, but they are the cheapest activations available: waking one dependency '
+            f'unblocks work already staffed and budgeted.')
+    body = ("<ol class='queue'>" + "".join(f"<li>{r}</li>" for r in recs) + "</ol>") if recs else \
+        "<p>Nothing to recommend from the current records.</p>"
+    body += ('<p class="dim">Nothing here has been authorised or acted on. These are read off the '
+             'records above; JARVIS files no record and takes no action.</p>')
+    out.append(answer("What do you recommend?", "recommendation", body,
+                      ["Studio/state/", "Studio/constitution/"]))
+
+    return "".join(out)
+
+
+def panel_system(perms, memory, gates_doc, projects):
+    """
+    The authority model, stated where a reader can check it against the files.
+
+    A page that shows what the studio is doing without showing what it is not allowed to
+    do is only half an instrument. The paths below are the actual contents of
+    permissions.json, not a description of it.
+    """
+    exclusive = "".join(f'<li><code>{esc(p)}</code></li>'
+                        for p in (perms or {}).get("humanExclusivePaths", []))
+    layers = ""
+    for layer in (memory or {}).get("layers", []):
+        layers += (f'<tr><td data-label="Layer"><div class="v"><code>{esc(layer.get("layer", "?"))}</code></div></td>'
+                   f'<td data-label="Name"><div class="v">{esc(layer.get("name", ""))}</div></td>'
+                   f'<td data-label="Path"><div class="v"><code>{esc(layer.get("path", ""))}</code></div></td>'
+                   f'<td data-label="Write policy"><div class="v">{esc(layer.get("writePolicy", ""))}</div></td></tr>')
+    layer_table = (f'<div class="scroll"><table><thead><tr><th>Layer</th><th>Name</th>'
+                   f'<th>Path</th><th>Write policy</th></tr></thead><tbody>{layers}</tbody>'
+                   f'</table></div>') if layers else '<p class="empty">Nothing recorded.</p>'
+
+    no_override = [g.get("id") for g in (gates_doc or {}).get("gates", [])
+                   if (g.get("overridableBy") or []) == []]
+
+    return (
+        f'<p class="note">{claim_chip("fact")} Every path and rule below is read from the '
+        f'constitution in this checkout.</p>'
+        f'<h3 class="sub">Human-exclusive paths</h3>'
+        f'<p class="note">No agent may write these, at any tier, for any reason. Creating, '
+        f'retiring or replacing an agent is an edit under <code>Studio/constitution/</code>, '
+        f'which is why workforce changes cannot happen without the founder however much '
+        f'evidence a gap record carries.</p>'
+        f'<ul class="paths">{exclusive}</ul>'
+        f'<h3 class="sub">Gates with no override</h3>'
+        f'<p class="note">'
+        + (" ".join(chip(g, "ok") for g in no_override) if no_override
+           else unknown("No gate declares an empty override list."))
+        + ' &mdash; not by an agent, not by a director, not by the founder.</p>'
+        f'<h3 class="sub">The operating loop</h3>'
+        f'<p class="note">OBSERVE &rarr; ANALYZE &rarr; PROPOSE &rarr; VALIDATE &rarr; '
+        f'AUTHORIZE &rarr; EXECUTE. Work already authorised as normal operation proceeds '
+        f'without asking. Anything that changes authority, security, the constitution or '
+        f'destructive permissions stops at AUTHORIZE, and the stop is enforced by the path '
+        f'list above rather than by an agent\'s good behaviour.</p>'
+        f'<h3 class="sub">What this page may do</h3>'
+        f'<p class="note">Read. Nothing else. It writes no record, files no proposal and '
+        f'triggers no action; regenerating it cannot change a single byte of studio state. '
+        f'A cockpit that can alter the instruments is not a cockpit.</p>'
+        f'<h3 class="sub">Memory layers</h3>{layer_table}')
+
+
+def panel_divisions(org, agent_files, budgets):
+    """
+    The org chart as a chart: who runs each division, what it may write, what it costs.
+
+    The roll-up in Agents answers "how many are awake"; this answers "who is accountable
+    for what", which is the question a founder asks when work has no owner. Both read the
+    same files.
+    """
+    if not org:
+        return ('<p class="empty">No org chart on disk. '
+                + unknown("Studio/constitution/org.json is absent or unreadable.") + "</p>")
+
+    staffing = {}
+    for path, doc in agent_files:
+        division = doc.get("division") or Path(path).stem
+        agents = doc.get("agents") or []
+        staffing[division] = (
+            sum(1 for a in agents if a.get("status") == "active"),
+            sum(1 for a in agents if a.get("status") == "dormant"),
+            sum(1 for a in agents if a.get("status") == "retired"),
+        )
+
+    caps = {b.get("id"): b for b in (budgets or {}).get("budgets", [])}
+    rows = []
+    for d in org.get("divisions", []):
+        did = d.get("id", "?")
+        active, dormant, retired = staffing.get(did, (0, 0, 0))
+        budget = caps.get(d.get("budgetId"))
+        headcount = f'{active} active'
+        if dormant:
+            headcount += f' <span class="dim">&middot; {dormant} dormant</span>'
+        if retired:
+            headcount += f' <span class="dim">&middot; {retired} retired</span>'
+        rows.append([
+            f'<strong>{esc(d.get("name", did))}</strong><br><code>{esc(did)}</code>',
+            f'<code class="id">{esc(d.get("boss", "?"))}</code>',
+            headcount,
+            (f'{esc(budget.get("hardStop"))} DKK' if budget
+             else unknown(f'Division names budget {esc(d.get("budgetId", "?"))}, which is not on disk.')),
+            "<br>".join(f'<code>{esc(w)}</code>' for w in (d.get("writeScope") or []))
+            or unknown("No write scope declared."),
+            long_text(d.get("mandate")),
+        ])
+    return table(["Division", "Boss", "Staffing", "Hard stop", "May write", "Mandate"], rows,
+                 widths=["18ch", None, "18ch", "12ch", "26ch", "auto"])
+
+
+def panel_projects(projects):
+    """
+    What JARVIS operates, and the line around each one.
+
+    JARVIS is the studio layer; a project is a product underneath it. Keeping that
+    separation is not a matter of intent -- WorkforceCrossCheckTests refuses a project
+    that claims a studio path and refuses any tracked file inside a project that so much
+    as mentions one. This panel shows the boundary those checks defend.
+    """
+    if not projects:
+        return ('<p class="empty">No project registry on disk. '
+                + unknown("Studio/constitution/projects.json is absent or unreadable.") + "</p>")
+
+    tone = {"active": "ok", "paused": "warn", "planned": "info", "archived": "neutral"}
+    rows = []
+    for p in projects.get("projects", []):
+        divisions = p.get("divisions")
+        rows.append([
+            f'<strong>{esc(p.get("name", "?"))}</strong><br><code>{esc(p.get("id", "?"))}</code>',
+            chip(p.get("kind", "?"), "neutral"),
+            chip(p.get("status", "?"), tone.get(p.get("status"), "neutral")),
+            "<br>".join(f'<code>{esc(o)}</code>' for o in (p.get("owns") or []))
+            or unknown("No owned paths declared."),
+            " ".join(chip(g, "neutral") for g in (p.get("verifiedByGates") or []))
+            or unknown("No gate rules on this project, so it has no definition of done."),
+            (f'{len(divisions)} division(s)' if divisions
+             else '<span class="dim">whole roster</span>'),
+        ])
+
+    studio = "".join(f'<li><code>{esc(x)}</code></li>' for x in (projects.get("studioPaths") or []))
+    note = (f'<p class="note">{claim_chip("fact")} The studio layer owns these paths, and no '
+            f'project may claim any of them:</p><ul class="paths">{studio}</ul>')
+    return note + table(
+        ["Project", "Kind", "Status", "Owns", "Gates", "Staffed by"], rows,
+        widths=["20ch", "10ch", "11ch", "26ch", "20ch", "auto"])
+
+
+def panel_gaps(gaps, projects):
+    """
+    Capability gaps: what the studio needs and nobody covers.
+
+    This is the panel that makes a variable-size workforce safe to look at. ADR-0005
+    removed the roster ceiling, so the question "should we hire" now has no numerical
+    answer and needs an evidential one instead. A gap here is not permission to create an
+    agent -- Studio/constitution stays human-exclusive -- it is the evidence someone would
+    need before asking.
+    """
+    if not gaps:
+        return ('<p class="empty">No capability gaps filed. '
+                + unknown("Studio/state/gaps holds no GAP records.") + "</p>")
+
+    tone = {"open": "warn", "proposed": "info", "filled": "ok",
+            "rejected": "neutral", "superseded": "neutral"}
+    rows = []
+    for _, g in sorted(gaps, key=lambda t: t[1].get("id", "")):
+        status = g.get("status", "?")
+        proposed = g.get("proposedSpecialist")
+        rows.append([
+            f'<strong>{esc(g.get("id", "?"))}</strong>',
+            chip(status, tone.get(status, "neutral")),
+            " ".join(chip(sig, "neutral") for sig in (g.get("signal") or []))
+            or unknown("No signal recorded."),
+            str(len(g.get("evidence") or [])),
+            f'{len(g.get("consideredExisting") or [])} ruled out',
+            (f'<code>{esc(proposed.get("id"))}</code>' if proposed
+             else '<span class="dim">none yet</span>'),
+            ", ".join(f'<code>{esc(x)}</code>' for x in (g.get("affectedProjects") or []))
+            or '<span class="dim">studio layer</span>',
+        ])
+    note = (f'<p class="note">{claim_chip("observation")} A gap is filed with evidence and with '
+            f'the agents examined and rejected as owners, because activation of a dormant '
+            f'specialist is always the cheaper answer and has to be ruled out explicitly. '
+            f'Filing one grants no authority to act on it: creating, retiring or replacing an '
+            f'agent is a <code>Studio/constitution</code> edit, which is human-exclusive.</p>')
+    # The index, not the record. Carrying the capability text here too squeezed it to one
+    # word per line beside the signal chips, and it is stated in full in the card below --
+    # the same sentence twice, once unreadably.
+    return note + table(
+        ["Gap", "Status", "Signal", "Evidence", "Alternatives", "Proposed", "Affects"], rows,
+        widths=["12ch", "12ch", "auto", "12ch", "16ch", "24ch", "18ch"])
+
+
+def panel_gap_detail(gaps):
+    """The reasoning behind each open gap, which the table can only count."""
+    blocks = ""
+    for _, g in sorted(gaps, key=lambda t: t[1].get("id", "")):
+        considered = "".join(
+            f'<li><code>{esc(c.get("agent", "?"))}</code> {esc(c.get("whyNot", ""))}</li>'
+            for c in (g.get("consideredExisting") or []))
+        evidence = "".join(f'<li><code>{esc(e)}</code></li>' for e in (g.get("evidence") or []))
+        proposed = g.get("proposedSpecialist")
+        prop = ""
+        if proposed:
+            prop = (f'<h4>{claim_chip("proposal")} {esc(proposed.get("displayName", "?"))} '
+                    f'<code>{esc(proposed.get("id", "?"))}</code></h4>'
+                    f'<dl class="kv">'
+                    f'<dt>Division</dt><dd><code>{esc(proposed.get("division", "?"))}</code></dd>'
+                    f'<dt>Reports to</dt><dd><code>{esc(proposed.get("reportsTo", "?"))}</code></dd>'
+                    f'<dt>Purpose</dt><dd>{esc(proposed.get("purpose", ""))}</dd>'
+                    f'<dt>Produces</dt><dd>{"; ".join(esc(o) for o in proposed.get("measurableOutput", []))}</dd>'
+                    f'<dt>Measured by</dt><dd>{esc(proposed.get("successMetric", ""))}</dd>'
+                    f'<dt>Activates when</dt><dd>{esc(proposed.get("activationCriteria", ""))}</dd>'
+                    f'<dt>May not</dt><dd>{"; ".join(esc(b) for b in proposed.get("boundaries", []))}</dd>'
+                    f'</dl>')
+        blocks += (
+            f'<article class="gap"><h3>{esc(g.get("id", "?"))} '
+            f'<span class="dim">{esc(g.get("status", "?"))}</span></h3>'
+            f'<p class="lede">{esc(g.get("capability", ""))}</p>'
+            f'<h4>{claim_chip("fact")} Evidence</h4><ul class="paths">{evidence}</ul>'
+            f'<h4>{claim_chip("inference")} Why the existing roster does not cover it</h4>'
+            f'<p>{esc(g.get("whyExistingRosterIsInsufficient", ""))}</p>'
+            f'<h4>Agents considered and ruled out</h4><ul class="ruledout">{considered}</ul>'
+            + prop
+            + (f'<p class="note">{esc(g.get("notes"))}</p>' if g.get("notes") else "")
+            + "</article>")
+    return blocks or '<p class="empty">Nothing recorded.</p>'
+
+
+def panel_agent_activity(agent_files, orders, verdicts, evidence, proposals,
+                         challenges, events, state):
+    """
+    Per-agent recorded activity, and a deliberate refusal to call it performance.
+
+    Every number here is a count of records that name the agent -- work orders assigned,
+    evidence produced, verdicts issued, proposals raised, events actored. That is real and
+    checkable. It is NOT the agent's success metric: every agent declares one, and not a
+    single one of them is measured anywhere on disk. agent-performance-auditor's scorecard
+    is the record that would measure them and no such record has ever been filed.
+
+    So the metric column shows what the agent said it should be judged on, and the
+    judgement itself is UNKNOWN. Scoring agents off activity counts would be exactly the
+    invented green light this page exists to refuse: a busy agent is not a good one, and
+    an idle dormant agent is behaving correctly.
+    """
+    counts = {}
+    def bump(agent, key):
+        if not agent:
+            return
+        counts.setdefault(agent, collections.Counter())[key] += 1
+
+    for _, o in orders:
+        bump(o.get("agent"), "orders")
+    for b in (state or {}).get("backlog") or []:
+        bump(b.get("assignedTo"), "backlog")
+    for _, v in verdicts:
+        bump(v.get("evaluatedBy"), "verdicts")
+    for _, e in evidence:
+        bump(e.get("producedBy"), "evidence")
+    for _, p in proposals:
+        bump(p.get("raisedBy"), "proposals")
+    for _, c in challenges:
+        bump(c.get("raisedBy"), "challenges")
+    for _, e in events:
+        bump(e.get("actor"), "events")
+
+    live = {a.get("agent"): a.get("state") for a in ((state or {}).get("agentStatus") or [])}
+    tone = {"active": "ok", "dormant": "neutral", "retired": "bad"}
+    rows = []
+    for _, doc in agent_files:
+        for a in doc.get("agents") or []:
+            aid = a.get("id", "?")
+            c = counts.get(aid)
+            total = sum(c.values()) if c else 0
+            if total:
+                trail = ", ".join(f'{n}&nbsp;{k}' for k, n in sorted(c.items()))
+            elif a.get("status") == "active":
+                trail = unknown("This agent is active and names no record anywhere on disk.")
+            else:
+                trail = '<span class="dim">&mdash;</span>'
+            rows.append([
+                f'<code class="id">{esc(aid)}</code><br>'
+                f'<span class="dim">{esc(a.get("division", "?"))}</span>',
+                chip(a.get("status", "?"), tone.get(a.get("status"), "neutral"))
+                + (" " + chip(live[aid], {"working": "info", "blocked": "bad"}.get(live[aid], "neutral"))
+                   if aid in live else ""),
+                str(total),
+                trail,
+                long_text(a.get("successMetric")),
+            ])
+
+    rows.sort(key=lambda r: (-int(r[2]), r[0]))
+    note = (f'<p class="note">{claim_chip("observation")} Records naming each agent: orders '
+            f'assigned, evidence produced, verdicts issued, proposals and challenges raised, '
+            f'events actored. This is activity, not performance &mdash; a dormant agent with '
+            f'zero records is behaving correctly, and a busy one may be producing nothing of '
+            f'value. Measurement against the declared metric is '
+            + unavailable("agent-performance-auditor produces the scorecard that would measure "
+                           "these. No scorecard record exists on disk.") + '.</p>')
+    # Five columns, not seven. Each column costs 28px of padding before it holds
+    # anything, so seven of them over a 876px workspace left every identifier column
+    # below the width of the agent ids it had to show. Division moves under the id and
+    # the live state joins the status chip beside it; nothing is dropped.
+    return note + table(
+        ["Agent", "Status", "Records", "Where it appears", "Declared metric"],
+        rows, widths=[None, "20ch", "10ch", "26ch", "auto"])
+
+
 def panel_backlog(state):
     """
     The backlog as project-state.json records it, which is not the same list as the
@@ -632,7 +1152,7 @@ def panel_backlog(state):
                             + ", ".join(f'<code>{esc(x)}</code>' for x in blocked_by)
                             + "</span>")
     return table(["Item", "Status", "Level", "Priority", "Assigned to", "Title"], rows,
-                 widths=["13ch", "18ch", "9ch", "11ch", "25ch", "auto"])
+                 widths=["13ch", "18ch", "9ch", "11ch", "29ch", "auto"])
 
 
 # ------------------------------------------------------------------ page ---
@@ -675,6 +1195,12 @@ ICONS = {
     "budget": "M3 6h18v12H3z M3 10h18 M7 14h4",
     "audit": "M10 3a7 7 0 100 14 7 7 0 000-14z M15 15l5 5",
     "backlog": "M4 5h5v5H4z M4 13h5v5H4z M12 7h7 M12 15h7",
+    "briefing": "M11 3a8 8 0 100 16 8 8 0 000-16z M11 7v5l3 2",
+    "divisions": "M11 3v4 M5 11v3 M17 11v3 M5 11h12 M3 17h4v3H3z M9 17h4v3H9z M15 17h4v3h-4z M9 3h4v4H9z",
+    "gaps": "M11 3l8 14H3z M11 8v4 M11 15h.01",
+    "projects": "M3 6h6l2 2h7v10H3z M3 11h16",
+    "performance": "M3 18h16 M6 18V9 M11 18V5 M16 18v-6",
+    "system": "M11 8a3 3 0 100 6 3 3 0 000-6z M11 2v3 M11 17v3 M2 11h3 M17 11h3 M4.5 4.5l2 2 M15.5 15.5l2 2 M17.5 4.5l-2 2 M6.5 15.5l-2 2",
 }
 
 # The theme control, rendered exactly once, at the end of the brand row. A first pass
@@ -919,6 +1445,11 @@ text-transform:uppercase;letter-spacing:.09em;font-weight:700;line-height:1.75}
    separate grid items and landed under the next label. */
 td .v{min-width:0;overflow-wrap:anywhere}
 td .v code{white-space:normal;word-break:break-all}
+/* In the stacked phone layout there are no columns for a chip to wrap inside, so the
+   nowrap that protects PENDING from breaking on desktop instead pushed a 22-character
+   signal label past the card edge at 320px. Chips may wrap only where the table has
+   stopped being a table. */
+td .v .chip{white-space:normal;overflow-wrap:anywhere}
 
 code{font:11.5px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;
 background:var(--mut-bg);border:1px solid var(--line);padding:1px 5px;
@@ -946,6 +1477,19 @@ border:1px solid transparent;vertical-align:baseline}
 .chip.warn{color:var(--warn);background:var(--warn-bg);border-color:var(--warn-line)}
 .chip.info{color:var(--info);background:var(--info-bg);border-color:var(--info-line)}
 .chip.neutral{color:var(--mut);background:var(--mut-bg);border-color:var(--mut-line)}
+/* The claim classes are a separate family from the four states and must not be mistaken
+   for them: a state says how far a claim reaches, a claim class says what kind of
+   statement it is. So they carry no fill and a left rule instead of a border -- the
+   shape of an annotation rather than of a result. The two that cost money if believed,
+   inference and recommendation, are the only ones given colour. */
+.chip[class*="claim-"]{background:none;border:none;border-left:2px solid var(--line2);
+border-radius:0;padding:1px 0 1px 8px;color:var(--faint);letter-spacing:.09em}
+.chip.claim-fact{border-left-color:var(--ok);color:var(--dim)}
+.chip.claim-observation{border-left-color:var(--info);color:var(--dim)}
+.chip.claim-inference{border-left-color:var(--warn);color:var(--warn)}
+.chip.claim-recommendation{border-left-color:var(--accent);color:var(--accent-txt)}
+.chip.claim-proposal{border-left-color:var(--info);color:var(--info)}
+
 /* The four honesty states read as one family and stay quieter than a verdict: they
    describe how much is known, not whether it is good. UNAVAILABLE and UNKNOWN keep
    the dashed edge that marks "this is not a result". */
@@ -956,6 +1500,44 @@ border:1px dashed var(--line2);cursor:help}
 .chip.state-unknown{color:var(--faint)}
 
 /* ================================================================= misc === */
+/* ------------------------------------------------- briefing + records --- */
+.qa{border:1px solid var(--line);background:var(--panel);border-radius:var(--r);
+padding:16px 18px;margin:0 0 12px}
+.qa h3{font-size:15.5px;font-weight:650;letter-spacing:-.01em;margin:0 0 10px}
+.qa .ans{display:flex;flex-direction:column;gap:8px}
+.qa .body{font-size:13.5px;line-height:1.6;color:var(--dim);min-width:0}
+.qa .body>p:first-child{margin-top:0}
+.qa .body p{margin:0 0 10px}
+.qa .body ul,.qa .body ol{margin:0 0 10px}
+.qa .body li{font-size:13.5px}
+.qa .src{font-size:11.5px;color:var(--faint);margin:0}
+.qa .src code{font-size:10.5px}
+
+.gap{border:1px solid var(--line);background:var(--panel);border-radius:var(--r);
+padding:16px 18px;margin:0 0 12px}
+.gap h3{font-size:15px;font-weight:650;margin:0 0 8px}
+.gap h4{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--faint);
+font-weight:700;margin:16px 0 7px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gap .lede{font-size:14px;line-height:1.6;color:var(--fg);margin:0}
+.gap p{font-size:13.5px;line-height:1.6;color:var(--dim);margin:0 0 8px}
+.gap ul{margin:0 0 8px}
+.gap li{font-size:13px;color:var(--dim);line-height:1.55}
+ul.paths,ul.ruledout{list-style:none;padding:0;margin:0 0 10px}
+ul.paths li{margin-bottom:5px}
+/* Prose blocks carry identifiers longer than a phone is wide -- an agent dependency
+   chain, a repository path, a glob. code is nowrap everywhere else on the page because
+   a broken commit hash is worse than a scrollbar; here the opposite holds, and
+   "merge-systems-engineer -> merge-systems-designer" pushed a 390px viewport to 399. */
+.qa code,.gap code,ul.paths code,.note code,dl.kv code{white-space:normal;
+overflow-wrap:anywhere}
+ul.ruledout li{margin-bottom:9px;line-height:1.55;padding-left:12px;
+border-left:1px solid var(--line)}
+dl.kv{margin:0;display:grid;grid-template-columns:minmax(90px,auto) minmax(0,1fr);
+gap:7px 14px;font-size:13px}
+dl.kv dt{color:var(--faint);font-size:11.5px;text-transform:uppercase;
+letter-spacing:.06em;font-weight:700;line-height:1.5}
+dl.kv dd{margin:0;color:var(--dim);line-height:1.55;min-width:0;overflow-wrap:anywhere}
+
 ol.queue{list-style:none;padding:0;margin:0;counter-reset:q}
 ol.queue li{counter-increment:q;position:relative;padding:15px 16px 15px 46px;
 background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
@@ -978,6 +1560,9 @@ ul.legend li .chip{flex:none}
 .narrowonly{display:block}
 @media (min-width:1400px){.narrowonly{display:none}}
 .aside ul.legend{grid-template-columns:1fr;background:none;border:none;padding:0}
+/* The claim labels are half again as long as REAL or PENDING, and at 228px the widest
+   of them wrapped under its own chip. */
+#briefing ul.legend{grid-template-columns:repeat(auto-fit,minmax(min(290px,100%),1fr))}
 footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--rule);
 color:var(--faint);font-size:11.5px;line-height:1.75}
 .aside{display:none}
@@ -1094,10 +1679,26 @@ tbody tr:last-child td{border-bottom:none}
    claim a 480px column of its own. */
 td .v{min-width:0}
 td .v .tx{overflow-wrap:anywhere}
-td .v code{white-space:normal;overflow-wrap:break-word}
+/* word-break:normal is doing real work here. The phone rule above sets break-all so a
+   path longer than the screen cannot overflow a card; nothing reset it at this
+   breakpoint, so every identifier in every table broke wherever the line ended --
+   `core-simulation-enginee` / `r`, `EVD-001` / `3`. overflow-wrap:break-word then does
+   the job properly: break at a hyphen, and split a word only when it cannot fit a line
+   by itself. */
+td .v code{white-space:normal;word-break:normal;overflow-wrap:break-word}
+/* An identifier column never wraps. This is what makes the column self-sizing: a nowrap
+   token sets min-content, and table-layout:auto must honour it. */
+td .v code.id{white-space:nowrap}
 td .v .chip{white-space:nowrap;max-width:100%}
 .shead h2{font-size:21px}
 .stats{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+}
+
+/* Below the width where the context column appears, a six-column table spends 168px on
+   cell padding alone. Trimming it is worth more than it costs: the alternative is
+   columns narrower than the identifiers they exist to show. */
+@media (min-width:880px) and (max-width:1399px){
+td,th{padding-left:10px;padding-right:10px}
 }
 
 /* ================================================ >= 1024px : the shell ===
@@ -1290,6 +1891,15 @@ NAV_JS = """
     if(main&&main.scrollTop)main.scrollTop=0;
   }
 
+  /* Now and again on the next frame. The browser performs its own scroll-to-fragment
+     AFTER the hashchange handler returns, so a single reset inside the handler is
+     overwritten by it -- which is why #briefing still landed 193px down while #audit,
+     being short enough to have nothing to scroll, appeared to work. */
+  function toTopSoon(){
+    toTop();
+    if(window.requestAnimationFrame)requestAnimationFrame(toTop);
+  }
+
   /* The initial view writes no fragment, and that is a fix rather than a nicety.
      replaceState('#overview') on load left Chromium scrolled 370px down on a phone --
      past the whole status strip, so the commit, the branch and the two gate states
@@ -1341,15 +1951,26 @@ NAV_JS = """
   document.addEventListener('keydown',function(e){
     if(e.key==='Escape')closeSheet(true);
   });
+  /* Back, forward, or a pasted #section link on a page already open: the browser changes
+     the fragment without reloading, so the init block below never runs again and the
+     scroll position stays wherever the previous section left it. The reader lands part
+     way down a section they have not seen the top of. */
   window.addEventListener('hashchange',function(){
-    show((location.hash||'').replace('#',''),false,false);
+    if(show((location.hash||'').replace('#',''),false,false))toTopSoon();
   });
 
   var start=(location.hash||'').replace('#','');
   if(!show(start,false,false))show(secs[0].id,false,false);
-  /* A deep link scrolls the document to the section before this script hides the
-     others; once they are hidden that offset points at nothing. */
-  toTop();
+
+  /* A deep link scrolls the document to its fragment, and that scroll is not finished
+     when this script runs -- the browser applies it again after layout. Calling toTop()
+     once here was undone every time: opening #audit on a phone landed 193px down, with
+     the whole status strip -- branch, commit, both gate readings -- above the viewport.
+     So: turn off the browser's own restoration, then reset now, after the next frame,
+     and again at load, which is the last point it can move the page underneath us. */
+  try{history.scrollRestoration='manual'}catch(e){}
+  toTopSoon();
+  window.addEventListener('load',toTop,{once:true});
 })();
 """
 
@@ -1366,6 +1987,7 @@ def icon(sid):
 def build():
     state = read_json(ROOT / "Studio/state/project-state.json")
     gates = read_json(ROOT / "Studio/constitution/gates.json")
+    org = read_json(ROOT / "Studio/constitution/org.json")
     budgets = read_json(ROOT / "Studio/constitution/budgets.json")
     agent_files = glob_json("Studio/constitution/agents")
     orders = glob_json("Studio/orders")
@@ -1377,6 +1999,10 @@ def build():
     proposals = glob_json("Studio/state/proposals")
     escalations = glob_json("Studio/state/escalations")
     events = glob_json("Studio/state/events")
+    gaps = glob_json("Studio/state/gaps")
+    projects = read_json(ROOT / "Studio/constitution/projects.json")
+    perms = read_json(ROOT / "Studio/constitution/permissions.json")
+    memory = read_json(ROOT / "Studio/constitution/memory.json")
 
     commit = git("rev-parse", "--short=7", "HEAD", default="unknown")
     branch = git("rev-parse", "--abbrev-ref", "HEAD", default="unknown")
@@ -1410,8 +2036,22 @@ def build():
     records = sum(len(x) for x in (orders, verdicts, challenges, rulings, evidence,
                                    decisions, proposals, escalations, events, agent_files))
 
+    # Is the cockpit's own validator run by any gate? Read rather than assumed: it is
+    # the evidence behind one of the briefing's recommendations, and a recommendation
+    # resting on a guess is exactly what the claim vocabulary exists to prevent.
+    gate_script = ROOT / "Studio/build/gate-g2.sh"
+    jarvis_ungated = True
+    if gate_script.is_file():
+        try:
+            jarvis_ungated = "build-jarvis.py" not in gate_script.read_text(encoding="utf-8")
+        except OSError:
+            jarvis_ungated = False
+
     facts = {
         "queue": queue, "blocked": blocked, "deps": deps, "backlog": backlog,
+        "gaps": gaps, "state": state, "events": events, "verdicts": verdicts,
+        "jarvis_ungated": jarvis_ungated,
+        "commits": git("rev-list", "--count", "HEAD", default="?"),
         "orders": orders, "evidence": evidence, "proposals": proposals,
         "escalations": escalations, "open_proposals": open_proposals,
         "open_escalations": open_escalations, "open_challenges": open_challenges,
@@ -1426,10 +2066,12 @@ def build():
     # being built, who is building it, and what the studio has written down. Fourteen
     # flat entries is a list; four groups is a control surface.
     GROUPS = [
-        ("Command", ["overview", "blocked"]),
+        ("Command", ["overview", "briefing", "blocked"]),
         ("Delivery", ["work", "backlog", "gates", "validation"]),
-        ("Organisation", ["agents", "budget"]),
+        ("Organisation", ["divisions", "agents", "performance", "gaps", "budget"]),
+        ("Portfolio", ["projects"]),
         ("Record", ["decisions", "questions", "proposals", "escalations", "events", "audit"]),
+        ("System", ["system"]),
     ]
     panels = [
         # Reading order: the instruments, then the one list nobody else can act on,
@@ -1448,6 +2090,35 @@ def build():
          # words, so the legend is repeated here and hidden again where the column
          # returns -- one legend on screen at any width, never two.
          + '<div class="narrowonly">' + legend() + '</div>'),
+        ("briefing", "Briefing", None, "Briefing",
+         "The questions this page exists to answer, worked out from the records at build "
+         "time. Not a chat: nothing here reaches a model, and every answer names the files "
+         "it came from so it can be checked rather than trusted.",
+         claim_legend() + panel_briefing(facts)),
+        ("divisions", "Divisions", len((org or {}).get("divisions") or []) or None,
+         "Divisions", "Who is accountable for what, what they may write, and what it costs.",
+         panel_divisions(org, agent_files, budgets)),
+        ("performance", "Agent activity", None, "Agent activity",
+         "What the records say each agent has actually done.",
+         panel_agent_activity(agent_files, orders, verdicts, evidence, proposals,
+                              challenges, events, state)),
+        ("gaps", "Capability gaps", len([g for _, g in gaps
+                                         if g.get("status") in ("open", "proposed")]) or None,
+         "Capability gaps",
+         "Capabilities the studio needs that no current agent covers. Since ADR-0005 the "
+         "roster has no fixed size, so growth is justified by these records rather than by "
+         "a headcount target.",
+         panel_gaps(gaps, projects) + '<h3 class="sub">The reasoning behind each gap</h3>'
+         + panel_gap_detail(gaps)),
+        ("projects", "Projects", len((projects or {}).get("projects") or []) or None,
+         "Projects",
+         "JARVIS is the studio layer; each project is a product underneath it. The paths "
+         "below are the boundary, and it is enforced rather than intended: a project may "
+         "not claim a studio path, and no tracked file inside a project may reference one.",
+         panel_projects(projects)),
+        ("system", "System", None, "System and authority",
+         "What JARVIS may do, what it may never do, and where the line is written down.",
+         panel_system(perms, memory, gates, projects)),
         ("blocked", "Blocked", len(blocked) or None, "Blocked",
          "What the studio says is stopping it, as project-state records it.",
          panel_blocked(state)),
@@ -1664,7 +2335,9 @@ def check(path, expected_sections):
             f"navigation and sections disagree: nav-only {sorted(seen_navs - seen_sections)}, "
             f"section-only {sorted(seen_sections - seen_navs)}")
 
-    allowed = {"ok", "bad", "warn", "info", "neutral"} | {f"state-{k}" for k in STATES}
+    allowed = ({"ok", "bad", "warn", "info", "neutral"}
+               | {f"state-{k}" for k in STATES}
+               | {f"claim-{k}" for k in CLAIMS})
     stray = chip_classes - allowed
     if stray:
         problems.append(
@@ -1674,6 +2347,16 @@ def check(path, expected_sections):
     # The four states must all still be reachable in the vocabulary. UNKNOWN and
     # UNAVAILABLE collapsing into one another is the specific regression this page was
     # built to prevent, and it would be invisible -- both render as a grey dashed chip.
+    # Every answer on the briefing must declare what kind of statement it is. If the
+    # recommendation class ever vanishes from the page, either the recommendations are
+    # gone or -- far worse -- they are being rendered as though they were facts.
+    for kind in ("fact", "recommendation"):
+        if f"claim-{kind}" not in chip_classes:
+            problems.append(
+                f"nothing on the page is marked {CLAIMS[kind][0]}. An interface that states "
+                f"conclusions without marking which are measured and which are advice lends "
+                f"the authority of a measurement to an opinion.")
+
     for kind in ("unknown", "unavailable"):
         if f"state-{kind}" not in chip_classes:
             problems.append(

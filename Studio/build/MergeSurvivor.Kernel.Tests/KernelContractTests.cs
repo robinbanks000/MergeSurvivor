@@ -164,7 +164,7 @@ namespace MergeSurvivor.Kernel.Tests
         /// </summary>
         internal static bool ClaimsARecordIdentifier(string fileName)
         {
-            string[] prefixes = { "EVD", "PRO", "CHA", "RUL", "RPT", "WO", "ADR", "ESC", "FAIL", "EVT", "MSG" };
+            string[] prefixes = { "EVD", "PRO", "CHA", "RUL", "RPT", "WO", "ADR", "ESC", "FAIL", "EVT", "MSG", "GAP" };
 
             foreach (string prefix in prefixes)
             {
@@ -191,6 +191,8 @@ namespace MergeSurvivor.Kernel.Tests
             yield return new TestCaseData("README.md", false).SetName("prose with no identifier");
             yield return new TestCaseData("workflow-notes.md", false).SetName("starts with WO but no digit follows the dash");
             yield return new TestCaseData("evidence-summary.md", false).SetName("starts with EV but is not a prefix");
+            yield return new TestCaseData("GAP-0001.json", true).SetName("a capability gap claims an identifier too");
+            yield return new TestCaseData("gap-analysis.md", false).SetName("starts with GAP but no digit follows the dash");
             yield return new TestCaseData("metrics_pre.json", false).SetName("scratch output");
         }
 

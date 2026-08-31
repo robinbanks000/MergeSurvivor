@@ -28,6 +28,11 @@
       "layer": "L0"
     },
     {
+      "path": "Studio/constitution/projects.json",
+      "schema": "project.schema.json",
+      "layer": "L0"
+    },
+    {
       "path": "Studio/state/project-state.json",
       "schema": "project-state.schema.json",
       "layer": "L2"
@@ -47,6 +52,11 @@
     {
       "glob": "Studio/state/proposals/PRO-*.json",
       "schema": "proposal.schema.json",
+      "layer": "L2"
+    },
+    {
+      "glob": "Studio/state/gaps/GAP-*.json",
+      "schema": "capability-gap.schema.json",
       "layer": "L2"
     },
     {

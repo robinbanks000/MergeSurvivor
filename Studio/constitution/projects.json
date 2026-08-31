@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-31T08:00:00Z",
+  "studioPaths": [
+    "Studio/**",
+    ".claude/agents/**",
+    ".github/workflows/**"
+  ],
+  "projects": [
+    {
+      "id": "mergesurvivor",
+      "name": "MergeSurvivor",
+      "kind": "game",
+      "status": "active",
+      "summary": "The studio's first product: a merge-and-survive game with a deterministic C# core and a thin Unity shell over it.",
+      "owns": [
+        "Assets/**",
+        "Packages/**",
+        "ProjectSettings/**"
+      ],
+      "verifiedByGates": ["G1", "G2", "G3", "G4", "G5"],
+      "divisions": [
+        "product-design",
+        "engineering",
+        "quality",
+        "balance-sim",
+        "content-art",
+        "audio"
+      ],
+      "notes": "The game carries no studio tooling and no cockpit UI. The only studio-owned paths that mention it are the gate scripts under Studio/build, which compile and test Assets/Core from outside; nothing under Assets imports anything from Studio."
+    }
+  ]
+}
