@@ -52,15 +52,42 @@ def read_json(path):
         return None
 
 
+_TRACKED = None
+
+
+def tracked_files():
+    """
+    Only files git tracks. Cached because every panel asks.
+
+    This is not fussiness. Walking the filesystem picked up
+    Studio/evidence/sims/metrics_pre.json and metrics_post.json -- gitignored
+    simulation scratch output with no id, tier or verdict -- and rendered them as two
+    more evidence records, taking the count from 14 to 16. Scratch output shown as
+    studio evidence is exactly the invented state this page exists not to produce.
+
+    The kernel's own EveryKernelDocumentIsCoveredByTheManifest already draws this line
+    and says why: if git does not track it, it is not part of the studio's memory. Same
+    rule here, so the page and the gate cannot disagree about what a record is.
+    """
+    global _TRACKED
+    if _TRACKED is None:
+        out = git("ls-files", "-z")
+        _TRACKED = {p for p in out.split("\0") if p}
+    return _TRACKED
+
+
 def glob_json(relative_dir, pattern="*.json"):
     d = ROOT / relative_dir
     if not d.is_dir():
         return []
     out = []
     for p in sorted(d.rglob(pattern)):
+        rel = p.relative_to(ROOT).as_posix()
+        if rel not in tracked_files():
+            continue
         doc = read_json(p)
         if doc is not None:
-            out.append((p.relative_to(ROOT).as_posix(), doc))
+            out.append((rel, doc))
     return out
 
 
@@ -83,14 +110,43 @@ def chip(text, tone="neutral"):
     return f'<span class="chip {tone}">{esc(text)}</span>'
 
 
+# The four states any non-literal cell must declare itself as. Rule 2 is enforced by
+# making this the only way to render one, so a panel added later cannot invent a fifth
+# meaning or quietly show a colour it has not earned. UNAVAILABLE and UNKNOWN are
+# different claims and the difference matters: the first says a source exists and this
+# checkout cannot reach it, the second says nothing has ever been recorded. Collapsing
+# them would turn "we have not looked" into "there is nothing to see".
+STATES = {
+    "real": ("REAL", "Read from a record in this checkout."),
+    "pending": ("PENDING", "A record exists and is open or unresolved."),
+    "unavailable": ("UNAVAILABLE", "The source exists, but a checkout cannot reach it."),
+    "unknown": ("UNKNOWN", "No record exists."),
+}
+
+
+def state_chip(kind, why=None):
+    label, default_why = STATES[kind]
+    return f'<span class="chip state-{kind}" title="{esc(why or default_why)}">{esc(label)}</span>'
+
+
 def unknown(why):
-    """The honest cell. Rule 2 above is enforced by using this and not a colour."""
-    return f'<span class="chip unknown" title="{esc(why)}">UNKNOWN</span>'
+    return state_chip("unknown", why)
 
 
-def section(title, body, note=None):
+def unavailable(why):
+    return state_chip("unavailable", why)
+
+
+def legend():
+    items = "".join(
+        f'<li>{state_chip(k)}<span class="dim">{esc(why)}</span></li>'
+        for k, (_, why) in STATES.items())
+    return f'<ul class="legend">{items}</ul>'
+
+
+def section(sid, title, body, note=None):
     n = f'<p class="note">{note}</p>' if note else ""
-    return f"<section><h2>{esc(title)}</h2>{n}{body}</section>"
+    return f'<section id="{esc(sid)}"><h2>{esc(title)}</h2>{n}{body}</section>'
 
 
 def table(headers, rows):
@@ -146,8 +202,15 @@ def panel_gates(gates_doc, verdicts):
         gid = g.get("id", "?")
         v = latest.get(gid)
         if v is None:
-            status = unknown("No gate-verdict record on disk for this gate. "
-                             "CI results are not readable from a checkout.")
+            # Owner decides which of the two honest answers applies. A gate owned by
+            # 'ci' HAS a live result -- it just lives in GitHub Actions, which no
+            # checkout can read. A gate owned by anyone else has simply never ruled.
+            if g.get("owner") == "ci":
+                status = unavailable(
+                    "This gate runs in CI. Its result lives in GitHub Actions and "
+                    "cannot be read from a checkout; no verdict record has been filed.")
+            else:
+                status = unknown(f"No gate-verdict record has ever been filed for {gid}.")
             detail = "&mdash;"
         else:
             tone = {"pass": "ok", "fail": "bad"}.get(v.get("verdict"), "warn")
@@ -227,6 +290,25 @@ def panel_agents(agent_files):
     return summary + table(["Division", "Active", "State", "Waiting on"], rows)
 
 
+def panel_agent_state(state):
+    """
+    Per-agent state, which the division roll-up above averages away. An idle division
+    and a working one look identical at 3/7.
+    """
+    entries = (state or {}).get("agentStatus") or []
+    if not entries:
+        return ('<p class="empty">No per-agent state recorded. '
+                + unknown("project-state.agentStatus is absent or empty.") + "</p>")
+
+    tone = {"working": "info", "blocked": "bad", "idle": "neutral"}
+    rows = [[
+        f'<code>{esc(a.get("agent", "?"))}</code>',
+        f'<code>{esc(a.get("division", "?"))}</code>',
+        chip(a.get("state", "?"), tone.get(a.get("state"), "neutral")),
+    ] for a in entries]
+    return table(["Agent", "Division", "State"], rows)
+
+
 def panel_open_questions(challenges, rulings):
     rows = []
     for _, c in challenges:
@@ -248,6 +330,89 @@ def panel_open_questions(challenges, rulings):
                 f'{len(blockers)} blocking condition(s)' if blockers else "not ready",
             ])
     return table(["Record", "Kind", "Order", "Detail"], rows)
+
+
+def panel_decisions(decisions):
+    rows = []
+    for _, d in sorted(decisions, key=lambda t: t[1].get("id", "")):
+        rows.append([
+            f'<strong>{esc(d.get("id", "?"))}</strong>',
+            f'<code>{esc(d.get("level", "?"))}</code>',
+            chip(d.get("status", "?"), "ok" if d.get("status") == "accepted" else "warn"),
+            esc(d.get("title") or ""),
+        ])
+    return table(["ADR", "Level", "Status", "Decision"], rows)
+
+
+def panel_validation(evidence):
+    """
+    Test and validation status, to the extent a checkout can know it.
+
+    These are EVIDENCE RECORDS, not a live test run: each says a named actor observed a
+    named result at a named commit. That is a strong claim -- anyone can check out the
+    commit and contradict it -- but it is a claim about the past, and the page must not
+    let it read as "the tests are green right now". G3's actual result lives in GitHub
+    Actions and is unreachable from here; that is stated rather than papered over.
+    """
+    rows = []
+    for _, e in sorted(evidence, key=lambda t: t[1].get("id", "")):
+        verdict = e.get("verdict", "?")
+        rows.append([
+            f'<strong>{esc(e.get("id", "?"))}</strong>',
+            f'<code>{esc(e.get("tier", "?"))}</code>',
+            chip(verdict, {"pass": "ok", "fail": "bad"}.get(verdict, "warn")),
+            f'<code>{esc(e.get("commit") or "&mdash;")}</code>',
+            f'<code>{esc(e.get("producedBy", "?"))}</code>',
+            esc(e.get("summary") or ""),
+        ])
+    note = ('Recorded evidence, each bound to a commit anyone can check out and re-run. '
+            'This is history, not a live result: current CI status is '
+            + unavailable("CI runs in GitHub Actions and does not commit back, so no "
+                          "checkout can read the current result.") + '.')
+    return f'<p class="note">{note}</p>' + table(
+        ["Evidence", "Tier", "Verdict", "Commit", "Produced by", "Summary"], rows)
+
+
+def panel_proposals(proposals):
+    rows = []
+    for _, p in sorted(proposals, key=lambda t: t[1].get("id", "")):
+        status = p.get("status", "?")
+        rows.append([
+            f'<strong>{esc(p.get("id", "?"))}</strong>',
+            state_chip("pending") if status == "open" else chip(status, "ok"),
+            f'<code>{esc(p.get("raisedBy", "?"))}</code>',
+            esc(p.get("priority") or "&mdash;"),
+            esc((p.get("problem") or "")[:200] + ("..." if len(p.get("problem") or "") > 200 else "")),
+        ])
+    return table(["Proposal", "Status", "Raised by", "Priority", "Problem"], rows)
+
+
+def panel_escalations(escalations):
+    rows = []
+    for _, e in sorted(escalations, key=lambda t: t[1].get("id", "")):
+        status = e.get("status", "?")
+        rows.append([
+            f'<strong>{esc(e.get("id", "?"))}</strong>',
+            state_chip("pending") if status == "open" else chip(status, "ok"),
+            f'<code>{esc(e.get("raisedBy", "?"))}</code>',
+            esc((e.get("question") or "")[:200]),
+        ])
+    return table(["Escalation", "Status", "Raised by", "Question"], rows)
+
+
+def panel_events(events):
+    """The studio's ordered log. seq is the ordering the kernel guarantees, not at."""
+    rows = []
+    for _, e in sorted(events, key=lambda t: (t[1].get("seq") or 0, t[1].get("id", ""))):
+        rows.append([
+            f'<code>{esc(e.get("id", "?"))}</code>',
+            f'<span class="dim">{esc(e.get("at", ""))}</span>',
+            f'<code>{esc(e.get("type", "?"))}</code>',
+            f'<code>{esc(e.get("actor", "?"))}</code>',
+            f'<code>{esc(e.get("subject") or "&mdash;")}</code>',
+            esc(e.get("summary") or ""),
+        ])
+    return table(["Event", "At", "Type", "Actor", "Subject", "Summary"], rows)
 
 
 def panel_budget(budgets):
@@ -286,55 +451,140 @@ def panel_audit(verdicts, evidence):
 # ------------------------------------------------------------------ page ---
 
 CSS = """
-:root{--bg:#fbfaf8;--fg:#1a1a1a;--dim:#6b6b6b;--line:#e2e0dc;--card:#fff;
---ok:#136f4a;--okbg:#e2f3ea;--bad:#9b1c1c;--badbg:#fdeaea;--warn:#8a5a00;--warnbg:#fdf2dc;
---info:#1e4f8a;--infobg:#e6effa;--unk:#5b5b5b;--unkbg:#eeecea;--accent:#7c3aed}
+:root{--bg:#f7f6f4;--panel:#fff;--fg:#16181d;--dim:#6a6f7a;--faint:#9aa0ab;
+--line:#e4e2de;--rule:#efedea;
+--ok:#0f6b45;--okbg:#e4f2ea;--bad:#9c1c1c;--badbg:#fceceb;--warn:#87550a;--warnbg:#fbf1dd;
+--info:#1c4f86;--infobg:#e8eff8;--mut:#5a5f69;--mutbg:#edebe8;
+--accent:#4f46e5;--accentdim:#6d67e8}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
---bg:#141414;--fg:#ececec;--dim:#9a9a9a;--line:#2e2e2e;--card:#1c1c1c;
---ok:#6ee7a8;--okbg:#12301f;--bad:#fca5a5;--badbg:#3a1414;--warn:#fcd34d;--warnbg:#332405;
---info:#93c5fd;--infobg:#122238;--unk:#b0b0b0;--unkbg:#262626;--accent:#c4b5fd}}
-:root[data-theme="dark"]{--bg:#141414;--fg:#ececec;--dim:#9a9a9a;--line:#2e2e2e;--card:#1c1c1c;
---ok:#6ee7a8;--okbg:#12301f;--bad:#fca5a5;--badbg:#3a1414;--warn:#fcd34d;--warnbg:#332405;
---info:#93c5fd;--infobg:#122238;--unk:#b0b0b0;--unkbg:#262626;--accent:#c4b5fd}
-body{background:var(--bg);color:var(--fg);font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
-margin:0;padding:28px 22px 80px;max-width:1180px;margin-inline:auto}
-header{border-bottom:2px solid var(--fg);padding-bottom:14px;margin-bottom:8px}
-h1{font-size:26px;margin:0 0 4px;letter-spacing:-.02em}
-h1 span{color:var(--accent)}
-h2{font-size:15px;text-transform:uppercase;letter-spacing:.09em;margin:34px 0 10px;
-padding-bottom:6px;border-bottom:1px solid var(--line)}
+--bg:#0e0f12;--panel:#16181d;--fg:#e9eaec;--dim:#9096a1;--faint:#6b7280;
+--line:#25282f;--rule:#1e2127;
+--ok:#5fd6a0;--okbg:#0f2a1e;--bad:#f4a3a0;--badbg:#331416;--warn:#e8bd5e;--warnbg:#2c2208;
+--info:#8bbcf5;--infobg:#111f33;--mut:#a3a8b2;--mutbg:#212429;
+--accent:#a5a0fb;--accentdim:#8b85f5}}
+:root[data-theme="dark"]{--bg:#0e0f12;--panel:#16181d;--fg:#e9eaec;--dim:#9096a1;--faint:#6b7280;
+--line:#25282f;--rule:#1e2127;
+--ok:#5fd6a0;--okbg:#0f2a1e;--bad:#f4a3a0;--badbg:#331416;--warn:#e8bd5e;--warnbg:#2c2208;
+--info:#8bbcf5;--infobg:#111f33;--mut:#a3a8b2;--mutbg:#212429;
+--accent:#a5a0fb;--accentdim:#8b85f5}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);margin:0;
+font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.shell{display:grid;grid-template-columns:216px minmax(0,1fr);gap:0;min-height:100vh;
+max-width:1400px;margin-inline:auto}
+
+/* --- rail --------------------------------------------------------------- */
+.rail{border-right:1px solid var(--line);padding:26px 0 40px;position:sticky;top:0;
+height:100vh;overflow-y:auto;background:var(--bg)}
+.brand{padding:0 20px 20px;border-bottom:1px solid var(--rule);margin-bottom:14px}
+.brand b{display:block;font-size:16px;letter-spacing:.14em;font-weight:600}
+.brand b i{font-style:normal;color:var(--accent)}
+.brand span{display:block;color:var(--faint);font-size:10.5px;letter-spacing:.1em;
+text-transform:uppercase;margin-top:5px}
+.rail nav{display:flex;flex-direction:column;padding:0 10px}
+.rail a{display:flex;justify-content:space-between;align-items:center;gap:8px;
+padding:7px 10px;border-radius:6px;color:var(--dim);text-decoration:none;font-size:13px;
+border-left:2px solid transparent}
+.rail a:hover{background:var(--mutbg);color:var(--fg)}
+.rail a.on{background:var(--mutbg);color:var(--fg);font-weight:600;border-left-color:var(--accent)}
+.rail a .n{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+.rail a.on .n{color:var(--accent)}
+
+/* --- main --------------------------------------------------------------- */
+main{padding:26px 30px 90px;min-width:0}
+header{margin-bottom:20px}
+h1{font-size:19px;margin:0 0 6px;letter-spacing:-.01em;font-weight:650}
 .meta{color:var(--dim);font-size:12.5px}
 .meta code{color:var(--fg)}
-section{margin-bottom:6px}
-.note{color:var(--dim);font-size:12.5px;margin:0 0 10px}
-.empty{color:var(--dim);font-style:italic}
-.big{font-size:22px;margin:6px 0 14px;font-weight:600}
-.big .dim{font-size:14px;font-weight:400}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);
+margin:0 0 12px;font-weight:650}
+/* Progressive enhancement, and it is load-bearing rather than principle: the first
+   version hid every section by default and revealed one from script, so with JS off the
+   page rendered completely blank. Sections are visible by default and the script opts
+   into switching by setting .js on the root. */
+section{display:block;margin-bottom:34px}
+.js section{display:none;margin-bottom:0}
+.js section.on{display:block}
+.note{color:var(--dim);font-size:12.5px;margin:0 0 12px;max-width:78ch}
+.empty{color:var(--faint);font-style:italic}
+.big{font-size:26px;margin:0 0 16px;font-weight:650;letter-spacing:-.02em}
+.big .dim{font-size:13px;font-weight:400;letter-spacing:0}
 .dim{color:var(--dim)}
-.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
 table{border-collapse:collapse;width:100%;font-size:13px}
-th{text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em;
-color:var(--dim);padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
-td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
-tr:last-child td{border-bottom:none}
-code{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--unkbg);
-padding:1px 5px;border-radius:4px}
-.chip{display:inline-block;font-size:11px;font-weight:600;text-transform:uppercase;
-letter-spacing:.05em;padding:2px 8px;border-radius:999px;white-space:nowrap}
+th{text-align:left;font-weight:600;font-size:10.5px;text-transform:uppercase;
+letter-spacing:.07em;color:var(--faint);padding:10px 14px;
+border-bottom:1px solid var(--line);white-space:nowrap;background:var(--panel)}
+td{padding:10px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--mutbg)}
+code{font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--mutbg);
+padding:1.5px 5px;border-radius:4px;color:var(--fg)}
+
+.chip{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;
+letter-spacing:.06em;padding:2.5px 8px;border-radius:5px;white-space:nowrap}
 .chip.ok{color:var(--ok);background:var(--okbg)}
 .chip.bad{color:var(--bad);background:var(--badbg)}
 .chip.warn{color:var(--warn);background:var(--warnbg)}
 .chip.info{color:var(--info);background:var(--infobg)}
-.chip.unknown,.chip.neutral{color:var(--unk);background:var(--unkbg)}
-.chip.unknown{cursor:help;border:1px dashed currentColor}
-ol.queue{padding-left:20px;margin:0}
-ol.queue li{margin-bottom:9px;padding-left:4px}
-ul{margin:0 0 10px;padding-left:20px}
-ul li{margin-bottom:6px}
-.banner{border-left:3px solid var(--accent);background:var(--card);padding:12px 16px;
-border-radius:0 8px 8px 0;margin:18px 0;font-size:13px;color:var(--dim)}
-footer{margin-top:48px;padding-top:14px;border-top:1px solid var(--line);
-color:var(--dim);font-size:12px}
+.chip.neutral{color:var(--mut);background:var(--mutbg)}
+/* The four honesty states read as one family, deliberately quieter than a verdict:
+   they describe how much we know, not whether something is good. */
+.chip.state-real{color:var(--ok);background:var(--okbg)}
+.chip.state-pending{color:var(--warn);background:var(--warnbg)}
+.chip.state-unavailable,.chip.state-unknown{color:var(--mut);background:var(--mutbg);
+cursor:help;border:1px dashed currentColor}
+.chip.state-unknown{opacity:.85}
+
+ol.queue{padding-left:0;margin:0;list-style:none;counter-reset:q}
+ol.queue li{counter-increment:q;position:relative;padding:12px 16px 12px 44px;
+background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-bottom:8px}
+ol.queue li::before{content:counter(q);position:absolute;left:14px;top:12px;
+color:var(--accent);font-weight:700;font-size:12px}
+ul{margin:0 0 12px;padding-left:18px}
+ul li{margin-bottom:7px}
+ul.legend{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:8px 20px;
+margin:0 0 16px;font-size:12px}
+ul.legend li{display:flex;align-items:center;gap:8px;margin:0}
+
+.banner{border:1px solid var(--line);border-left:2px solid var(--accent);
+background:var(--panel);padding:13px 16px;border-radius:0 8px 8px 0;margin:0 0 22px;
+font-size:12.5px;color:var(--dim);max-width:82ch}
+footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--rule);
+color:var(--faint);font-size:11.5px}
+
+@media (max-width:840px){
+.shell{grid-template-columns:1fr}
+.rail{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line);padding-bottom:14px}
+.rail nav{flex-direction:row;flex-wrap:wrap}
+main{padding:20px 16px 60px}
+section{display:block}
+}
+"""
+
+# No framework, no dependency. Sections are all present in the DOM; this shows one.
+# Without JS every section stays visible and the page degrades to a long document,
+# which is why sections are display:block in the narrow media query too.
+NAV_JS = """
+(function(){
+  var links=[].slice.call(document.querySelectorAll('.rail a[data-go]'));
+  var secs=[].slice.call(document.querySelectorAll('section[id]'));
+  if(!links.length||!secs.length)return;
+  document.documentElement.classList.add('js');
+  function show(id){
+    secs.forEach(function(s){s.classList.toggle('on',s.id===id)});
+    links.forEach(function(a){a.classList.toggle('on',a.getAttribute('data-go')===id)});
+    try{history.replaceState(null,'','#'+id)}catch(e){}
+  }
+  links.forEach(function(a){
+    a.addEventListener('click',function(e){e.preventDefault();show(a.getAttribute('data-go'))});
+  });
+  var start=(location.hash||'').replace('#','');
+  show(secs.some(function(s){return s.id===start})?start:secs[0].id);
+})();
 """
 
 
@@ -348,6 +598,10 @@ def build():
     challenges = glob_json("Studio/state/challenges")
     rulings = glob_json("Studio/state/rulings")
     evidence = glob_json("Studio/evidence")
+    decisions = glob_json("Studio/decisions")
+    proposals = glob_json("Studio/state/proposals")
+    escalations = glob_json("Studio/state/escalations")
+    events = glob_json("Studio/state/events")
 
     commit = git("rev-parse", "--short=7", "HEAD", default="unknown")
     branch = git("rev-parse", "--abbrev-ref", "HEAD", default="unknown")
@@ -355,41 +609,139 @@ def build():
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
 
     phase = (state or {}).get("phase") or {}
+    queue = (state or {}).get("humanQueue") or []
+    open_proposals = [p for _, p in proposals if p.get("status") == "open"]
+    not_ready = [r for _, r in rulings if (r.get("gateReadiness") or {}).get("state") == "not_ready"]
+    open_challenges = [c for _, c in challenges if c.get("status") == "open"]
+
+    # (id, rail label, count badge, title, note, body). One list drives both the rail and
+    # the sections, so a panel cannot exist without navigation to it, or the reverse.
+    panels = [
+        ("overview", "Overview", len(queue), "Waiting on the founder",
+         "Nobody else in the studio can clear these. Everything below is read from records "
+         "in this checkout; the legend says how far each claim reaches.",
+         legend() + panel_founder_queue(state)),
+        ("blocked", "Blocked", None, "Blocked", None, panel_blocked(state)),
+        ("gates", "Gates", None, "Gate ladder",
+         "Status is the latest gate-verdict record on disk. It is not a live CI result, and "
+         "the two are not the same claim.", panel_gates(gates, verdicts)),
+        ("work", "Work orders", len(orders), "Work orders", None, panel_orders(orders, verdicts)),
+        ("agents", "Agents", None, "The hundred agents", None,
+         panel_agents(agent_files) + '<h2 style="margin-top:26px">Per-agent state</h2>'
+         + panel_agent_state(state)),
+        ("validation", "Test &amp; validation", len(evidence), "Test and validation", None,
+         panel_validation(evidence)),
+        ("decisions", "Decisions", len(decisions), "Architecture decisions", None,
+         panel_decisions(decisions)),
+        ("questions", "Open questions", len(open_challenges) + len(not_ready), "Open questions",
+         "Challenges still open and rulings that withheld a gate.",
+         panel_open_questions(challenges, rulings)),
+        ("proposals", "Proposals", len(open_proposals), "Proposals", None, panel_proposals(proposals)),
+        ("escalations", "Escalations", len(escalations), "Escalations", None,
+         panel_escalations(escalations)),
+        ("events", "Events", len(events), "Event log", None, panel_events(events)),
+        ("budget", "Budget", None, "Budget", None, panel_budget(budgets)),
+        ("audit", "Audit trail", len(verdicts), "Audit trail", None, panel_audit(verdicts, evidence)),
+    ]
+
+    rail = "".join(
+        f'<a href="#{sid}" data-go="{sid}">{label}'
+        + (f'<span class="n">{count}</span>' if count is not None else "")
+        + "</a>"
+        for sid, label, count, _, _, _ in panels)
+
+    body = "".join(section(sid, title, panel_body, note)
+                   for sid, _, _, title, note, panel_body in panels)
 
     parts = [
         f"<title>JARVIS &middot; MergeSurvivor Studio</title><style>{CSS}</style>",
+        '<div class="shell">',
+        '<aside class="rail">',
+        '<div class="brand"><b>JARV<i>I</i>S</b><span>MergeSurvivor Studio</span></div>',
+        f"<nav>{rail}</nav>",
+        "</aside>",
+        "<main>",
         "<header>",
-        "<h1>JARVIS <span>&middot;</span> studio cockpit</h1>",
-        f'<p class="meta">Phase {esc(phase.get("current", "?"))} &mdash; {esc(phase.get("name", "?"))} '
-        f'&middot; <code>{esc(branch)}</code> at <code>{esc(commit)}</code>'
+        f'<h1>Phase {esc(phase.get("current", "?"))} &mdash; {esc(phase.get("name", "?"))}</h1>',
+        f'<p class="meta"><code>{esc(branch)}</code> at <code>{esc(commit)}</code>'
         + (' &middot; <span class="chip warn">working tree dirty</span>' if dirty else "")
         + f' &middot; generated {esc(now)}</p>',
         "</header>",
-        '<div class="banner">This page is generated from the files in this checkout and '
-        'nothing else. It cannot see CI, and it never guesses: anything it cannot establish '
-        'from disk is marked <span class="chip unknown">UNKNOWN</span> with the reason on hover. '
-        'It reads only &mdash; it can change no record.</div>',
-        section("Waiting on the founder", panel_founder_queue(state),
-                "Nobody else in the studio can clear these."),
-        section("Blocked", panel_blocked(state)),
-        section("Gates", panel_gates(gates, verdicts),
-                "Status is the latest gate-verdict record on disk, not a live CI result."),
-        section("Work orders", panel_orders(orders, verdicts)),
-        section("The hundred agents", panel_agents(agent_files)),
-        section("Open questions", panel_open_questions(challenges, rulings),
-                "Challenges still open and rulings that withheld a gate."),
-        section("Budget", panel_budget(budgets)),
-        section("Audit trail", panel_audit(verdicts, evidence)),
-        f'<footer>Regenerate with <code>python3 Studio/jarvis/build-jarvis.py</code>. '
-        f'Reads {len(orders)} order(s), {len(verdicts)} verdict(s), {len(rulings)} ruling(s), '
-        f'{len(evidence)} evidence record(s), {len(agent_files)} division file(s).</footer>',
+        '<div class="banner">Generated from the files in this checkout and nothing else. '
+        'It reads only &mdash; it can change no record &mdash; and it never guesses: every '
+        'claim carries one of four states, and anything it cannot establish from disk says '
+        'so rather than showing a colour it has not earned.</div>',
+        body,
+        f'<footer>Regenerate with <code>python3 Studio/jarvis/build-jarvis.py</code> '
+        f'(<code>--check</code> validates the output). Reads {len(orders)} order(s), '
+        f'{len(verdicts)} verdict(s), {len(rulings)} ruling(s), {len(evidence)} evidence '
+        f'record(s), {len(decisions)} decision(s), {len(proposals)} proposal(s), '
+        f'{len(events)} event(s), {len(agent_files)} division file(s).</footer>',
+        "</main></div>",
+        f"<script>{NAV_JS}</script>",
     ]
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(parts), encoding="utf-8")
-    return OUT
+    return OUT, [p[0] for p in panels]
+
+
+def check(path, expected_sections):
+    """
+    Validate the page this script just wrote.
+
+    Not decoration. Rule 2 is a claim about every cell on the page, and a claim that
+    large needs something enforcing it -- otherwise the next panel added quietly renders
+    a status outside the vocabulary and the honesty rule becomes a comment rather than a
+    property. This is also what lets "JARVIS works" be said without hand-waving.
+    """
+    from html.parser import HTMLParser
+
+    html_text = path.read_text(encoding="utf-8")
+    problems = []
+    seen_sections, seen_navs, chip_classes = set(), set(), set()
+
+    class Reader(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            a = dict(attrs)
+            if tag == "section" and a.get("id"):
+                seen_sections.add(a["id"])
+            if tag == "a" and a.get("data-go"):
+                seen_navs.add(a["data-go"])
+            if tag == "span" and "chip" in (a.get("class") or "").split():
+                chip_classes.update(c for c in a["class"].split() if c != "chip")
+
+    Reader().feed(html_text)
+
+    missing = [s for s in expected_sections if s not in seen_sections]
+    if missing:
+        problems.append(f"sections missing from the page: {', '.join(missing)}")
+
+    # Every section must be reachable, and every nav entry must lead somewhere.
+    if seen_navs != seen_sections:
+        problems.append(
+            f"navigation and sections disagree: nav-only {sorted(seen_navs - seen_sections)}, "
+            f"section-only {sorted(seen_sections - seen_navs)}")
+
+    allowed = {"ok", "bad", "warn", "info", "neutral"} | {f"state-{k}" for k in STATES}
+    stray = chip_classes - allowed
+    if stray:
+        problems.append(
+            f"status chips outside the vocabulary: {sorted(stray)}. Every status must be "
+            f"one of {sorted(allowed)} -- see rule 2.")
+
+    if not problems:
+        print(f"check: OK -- {len(seen_sections)} sections, all reachable, "
+              f"{len(chip_classes)} chip kinds all in vocabulary")
+        return 0
+
+    for p in problems:
+        print(f"check: FAIL -- {p}", file=sys.stderr)
+    return 1
 
 
 if __name__ == "__main__":
-    path = build()
+    path, sections = build()
     print(path.relative_to(ROOT).as_posix())
+    if "--check" in sys.argv:
+        sys.exit(check(path, sections))
