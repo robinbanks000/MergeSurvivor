@@ -636,22 +636,84 @@ def panel_pulse(f):
     return f'<div class="stats">{"".join(tiles)}</div>'
 
 
-def answer(question, claim, body, sources=()):
+def answer(question, claim, body, sources=(), keywords=()):
+    """
+    One grounded answer, in a form both the Briefing section and the console can use.
+
+    It is a dict rather than a string because the console needs the question, the keywords
+    and the rendered body separately, and the alternative -- building the answers twice --
+    is how the console and the section start disagreeing about what the studio's state is.
+    """
     src = ""
     if sources:
         src = ('<p class="src">Read from '
                + ", ".join(f'<code>{esc(x)}</code>' for x in sources) + "</p>")
-    return (f'<article class="qa" id="q-{esc(question_slug(question))}">'
-            f'<h3>{esc(question)}</h3>'
-            f'<div class="ans">{claim_chip(claim)}<div class="body">{body}{src}</div></div>'
-            "</article>")
+    return {
+        "id": question_slug(question),
+        "q": question,
+        "claim": claim,
+        "html": f'<div class="ans">{claim_chip(claim)}<div class="body">{body}{src}</div></div>',
+        "kw": sorted(set(list(keywords) + [w for w in question_slug(question).split("-") if len(w) > 2])),
+    }
+
+
+def render_answers(answers):
+    return "".join(
+        f'<article class="qa" id="q-{esc(a["id"])}"><h3>{esc(a["q"])}</h3>{a["html"]}</article>'
+        for a in answers)
+
+
+def console(answers, f):
+    """
+    The command area, and an exact statement of what it is.
+
+    The founder should be able to type a question at JARVIS rather than hunt for the panel
+    that happens to hold the answer, and that is what this does: every answer below is the
+    same one the Briefing section renders, matched by keyword in the browser.
+
+    What it deliberately is NOT is a prompt box wired to nothing. There is no model behind
+    this page and no process that could act on an instruction typed into it, so a console
+    that accepted "retire the audio division" and replied "done" would be the single most
+    dangerous thing in the interface -- a fabricated success on a destructive action. It
+    answers what it can answer, says so plainly when it cannot, and never reports having
+    done something. The boundary is stated on the face of the control rather than buried
+    in a tooltip.
+    """
+    suggestions = "".join(
+        f'<button type="button" class="sugg" data-q="{esc(a["q"])}">{esc(a["q"])}</button>'
+        for a in answers[:5])
+    return (
+        '<section class="console" aria-labelledby="console-h">'
+        '<div class="console-top">'
+        '<span class="pulse" aria-hidden="true"></span>'
+        '<h2 id="console-h">JARVIS <span>online</span></h2>'
+        f'<span class="uptime">reading {f["records"]} records &middot; '
+        f'{f["active"]} of {f["total"]} agents active</span>'
+        "</div>"
+        '<div class="askrow">'
+        '<label class="vh" for="ask">Ask JARVIS a question about the studio\'s state</label>'
+        '<svg class="caret" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5l5 5-5 5"/>'
+        '<path d="M11 15h5"/></svg>'
+        '<input id="ask" type="text" autocomplete="off" spellcheck="false" '
+        'placeholder="Ask JARVIS &mdash; what needs my attention?">'
+        '<button type="button" id="askclear" class="askclear" aria-label="Clear">&times;</button>'
+        "</div>"
+        f'<div class="suggs">{suggestions}</div>'
+        '<div id="askout" class="askout" role="region" aria-live="polite"></div>'
+        '<p class="bound">'
+        + claim_chip("fact")
+        + 'JARVIS answers from the records committed in this checkout, worked out when this '
+        'page was generated. It cannot execute commands, change a record, dispatch an agent '
+        'or reach anything outside this repository &mdash; so it will never report having '
+        'done so.</p>'
+        "</section>")
 
 
 def question_slug(q):
     return "".join(c if c.isalnum() else "-" for c in q.lower()).strip("-")[:40]
 
 
-def panel_briefing(f):
+def briefing_answers(f):
     """
     The standing questions, answered from the records rather than from a conversation.
 
@@ -683,7 +745,9 @@ def panel_briefing(f):
     else:
         body = "<p>Nothing is waiting on the founder.</p>"
     out.append(answer("What needs my attention?", "fact", body,
-                      ["Studio/state/project-state.json", "Studio/state/escalations/"]))
+                      ["Studio/state/project-state.json", "Studio/state/escalations/"],
+                      keywords=["attention", "urgent", "founder", "me", "queue", "waiting",
+                                "todo", "important", "priority", "escalation"]))
 
     # --- what is blocked ------------------------------------------------------
     body = ""
@@ -699,7 +763,8 @@ def panel_briefing(f):
             f'<li><code>{esc(b.get("id"))}</code> {esc(b.get("title", ""))}</li>'
             for b in blocked_backlog) + "</ul>")
     out.append(answer("What is blocked?", "fact", body or "<p>Nothing is recorded as blocked.</p>",
-                      ["Studio/state/project-state.json"]))
+                      ["Studio/state/project-state.json"],
+                      keywords=["blocked", "blocker", "stuck", "stalled", "waiting", "held"]))
 
     # --- what are you working on ---------------------------------------------
     moving = [b for b in f["backlog"] if b.get("status") in ("in_progress", "dispatched")]
@@ -720,7 +785,9 @@ def panel_briefing(f):
              + unavailable("No process supervisor writes to this repository. A checkout cannot "
                            "observe a running agent.") + ".</p>")
     out.append(answer("What are you working on?", "fact", body,
-                      ["Studio/state/project-state.json"]))
+                      ["Studio/state/project-state.json"],
+                      keywords=["working", "doing", "progress", "flight", "current", "now",
+                                "task", "tasks", "busy", "active"]))
 
     # --- which agents are failing --------------------------------------------
     body = ("<p>No failure records exist. " + unknown("Studio/state/failures holds no FAIL "
@@ -735,7 +802,9 @@ def panel_briefing(f):
                            "this. None exist on disk.") + ". Recorded activity per agent is in "
              "Agent activity.</p>")
     out.append(answer("Which agents are failing?", "fact", body,
-                      ["Studio/state/failures/", "Studio/state/project-state.json"]))
+                      ["Studio/state/failures/", "Studio/state/project-state.json"],
+                      keywords=["failing", "failed", "failure", "broken", "agent", "agents",
+                                "error", "wrong", "problem"]))
 
     # --- capability gaps ------------------------------------------------------
     if f["gaps"]:
@@ -746,7 +815,9 @@ def panel_briefing(f):
     else:
         body = ("<p>None filed. " + unknown("Studio/state/gaps holds no GAP records.") + "</p>")
     out.append(answer("Do we have a capability gap?", "observation", body,
-                      ["Studio/state/gaps/"]))
+                      ["Studio/state/gaps/"],
+                      keywords=["capability", "gap", "gaps", "missing", "hire", "hiring",
+                                "specialist", "need", "staff", "recruit"]))
 
     # --- what changed ---------------------------------------------------------
     if f["events"]:
@@ -761,7 +832,9 @@ def panel_briefing(f):
              f'not the git history, and the two can disagree: an agent that acts without filing '
              f'an event leaves no trace here. {len(f["events"])} event(s) against '
              f'{f["commits"]} commit(s) on this branch is itself worth noticing.</p>')
-    out.append(answer("What changed?", "fact", body, ["Studio/state/events/"]))
+    out.append(answer("What changed?", "fact", body, ["Studio/state/events/"],
+                      keywords=["changed", "change", "new", "recent", "event", "events",
+                                "history", "log", "happened"]))
 
     # --- what happened today --------------------------------------------------
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -772,7 +845,8 @@ def panel_briefing(f):
         body = (f"<p>No event carries today's date ({esc(today)}). "
                 + unknown("Either nothing was filed today, or work happened without an event "
                           "record. This page cannot tell those apart.") + "</p>")
-    out.append(answer("What happened today?", "fact", body, ["Studio/state/events/"]))
+    out.append(answer("What happened today?", "fact", body, ["Studio/state/events/"],
+                      keywords=["today", "day", "daily", "since", "morning"]))
 
     # --- why did a task fail --------------------------------------------------
     fails = [(_p, v) for _p, v in f["verdicts"] if v.get("verdict") != "pass"]
@@ -788,7 +862,9 @@ def panel_briefing(f):
     body += (f'<p class="dim">A failing CI run is not visible here: '
              + unavailable("CI results live in GitHub Actions and do not commit back.") + ".</p>")
     out.append(answer("Why did this task fail?", "fact", body,
-                      ["Studio/state/verdicts/", "Studio/state/rulings/"]))
+                      ["Studio/state/verdicts/", "Studio/state/rulings/"],
+                      keywords=["why", "fail", "failed", "verdict", "gate", "reason",
+                                "rejected", "task"]))
 
     # --- recommendations ------------------------------------------------------
     recs = []
@@ -820,9 +896,11 @@ def panel_briefing(f):
     body += ('<p class="dim">Nothing here has been authorised or acted on. These are read off the '
              'records above; JARVIS files no record and takes no action.</p>')
     out.append(answer("What do you recommend?", "recommendation", body,
-                      ["Studio/state/", "Studio/constitution/"]))
+                      ["Studio/state/", "Studio/constitution/"],
+                      keywords=["recommend", "advice", "suggest", "next", "should", "do",
+                                "priority", "best"]))
 
-    return "".join(out)
+    return out
 
 
 def panel_system(perms, memory, gates_doc, projects):
@@ -920,6 +998,89 @@ def panel_divisions(org, agent_files, budgets):
         ])
     return table(["Division", "Boss", "Staffing", "Hard stop", "May write", "Mandate"], rows,
                  widths=["18ch", None, "18ch", "12ch", "26ch", "auto"])
+
+
+def panel_hierarchy(org, agent_files):
+    """
+    The chain of command as a chain, not as a table.
+
+    A table of a hundred agents with a reportsTo column contains the hierarchy but does not
+    show it: nobody reads a hundred rows and assembles a tree in their head. The point of
+    drawing it is that one glance settles the question the org exists to answer -- who
+    does this specialist answer to, and does anyone answer to nobody.
+
+    Divisions collapse. Seven of the thirteen are entirely dormant, and expanding them by
+    default would bury the six that are working under sixty rows of agents waiting for a
+    precondition that has not fired.
+    """
+    if not org:
+        return ('<p class="empty">No org chart on disk. '
+                + unknown("Studio/constitution/org.json is absent or unreadable.") + "</p>")
+
+    by_division = {}
+    for path, doc in agent_files:
+        by_division[doc.get("division") or Path(path).stem] = doc.get("agents") or []
+
+    dot = {"active": "on", "dormant": "off", "retired": "gone"}
+    ceo_id = org.get("chiefExecutive", "?")
+    ceo = next((a for agents in by_division.values() for a in agents
+                if a.get("id") == ceo_id), None)
+
+    out = [f'<div class="tree">'
+           f'<div class="node root"><span class="dot on"></span>'
+           f'<span class="who">JARVIS</span>'
+           f'<span class="role">studio operating layer</span></div>'
+           f'<ul class="branch">']
+
+    # The chief executive sits between JARVIS and the divisions, and is the only agent
+    # reporting to the founder -- ExactlyOneAgentReportsToTheFounder enforces it.
+    out.append(
+        f'<li><div class="node ceo"><span class="dot {dot.get((ceo or {}).get("status"), "off")}"></span>'
+        f'<code class="id">{esc(ceo_id)}</code>'
+        f'<span class="role">{esc((ceo or {}).get("displayName", ""))}</span>'
+        f'{chip("reports to the founder", "neutral")}</div>')
+
+    out.append('<ul class="branch">')
+    for d in org.get("divisions", []):
+        did = d.get("id", "?")
+        agents = by_division.get(did, [])
+        boss_id = d.get("boss", "?")
+        specialists = [a for a in agents if a.get("id") != boss_id]
+        active = sum(1 for a in agents if a.get("status") == "active")
+        boss = next((a for a in agents if a.get("id") == boss_id), None)
+
+        if did == (ceo or {}).get("division"):
+            # The executive division is the chief executive; drawing it as a division
+            # under itself would put the same agent on the chart twice.
+            continue
+
+        kids = "".join(
+            f'<li><div class="node leaf"><span class="dot {dot.get(a.get("status"), "off")}"></span>'
+            f'<code class="id">{esc(a.get("id", "?"))}</code>'
+            f'<span class="role">{esc(a.get("displayName", ""))}</span>'
+            + (f'<span class="wait">{esc(a.get("activatesWhen"))}</span>'
+               if a.get("status") == "dormant" and a.get("activatesWhen") else "")
+            + "</div></li>"
+            for a in specialists)
+
+        out.append(
+            f'<li><details class="divnode"{" open" if active else ""}>'
+            f'<summary><div class="node div"><span class="dot {"on" if active else "off"}"></span>'
+            f'<span class="who">{esc(d.get("name", did))}</span>'
+            f'<code class="id">{esc(boss_id)}</code>'
+            f'<span class="role">{esc((boss or {}).get("displayName", ""))}</span>'
+            f'<span class="tally">{active}<span class="of">/{len(agents)}</span></span>'
+            f'</div></summary>'
+            f'<ul class="branch">{kids}</ul></details></li>')
+
+    out.append("</ul></li></ul></div>")
+
+    key = ('<p class="note">'
+           '<span class="dot on"></span> active &nbsp; '
+           '<span class="dot off"></span> dormant, with the precondition it waits on &nbsp; '
+           '<span class="dot gone"></span> retired'
+           '</p>')
+    return key + "".join(out)
 
 
 def panel_projects(projects):
@@ -1285,7 +1446,9 @@ color-scheme:light;
 }}
 
 @media (prefers-reduced-motion:reduce){:root{--t:1ms}
-*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+*{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+/* The status dot still has to read as lit once the pulse is gone. */
+.pulse{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)!important}}
 
 /* ================================================================ base === */
 *{box-sizing:border-box}
@@ -1298,7 +1461,7 @@ text-rendering:optimizeLegibility;overflow-x:hidden}
 /* Sections are focused programmatically so a screen reader announces the new view.
    That is a move cue, not a control, so it must not draw a focus ring around the
    whole panel -- which it did, framing the page in accent on every load. */
-section:focus,section:focus-visible{outline:none}
+.work>section:focus,.work>section:focus-visible{outline:none}
 h1,h2,h3{margin:0}
 a{color:var(--accent-txt)}
 
@@ -1377,9 +1540,12 @@ calc(104px + env(safe-area-inset-bottom)) max(var(--pad),env(safe-area-inset-lef
 min-width:0;max-width:var(--work-max);margin:0 auto;width:100%}
 
 /* ============================================================= sections === */
-section{display:block;margin-bottom:36px;scroll-margin-top:var(--head)}
-.js section{display:none;margin-bottom:0}
-.js section.on{display:block;animation:in var(--t) both}
+/* Scoped to the workspace's own children, not to every section on the page. The
+   unscoped version hid the console too, because the console is a section nested inside
+   the overview -- it rendered, took part in layout, and was invisible. */
+.work>section{display:block;margin-bottom:36px;scroll-margin-top:var(--head)}
+.js .work>section{display:none;margin-bottom:0}
+.js .work>section.on{display:block;animation:in var(--t) both}
 @keyframes in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 
 /* Header block. The eyebrow carries the rail group, the count carries the number that
@@ -1500,6 +1666,111 @@ border:1px dashed var(--line2);cursor:help}
 .chip.state-unknown{color:var(--faint)}
 
 /* ================================================================= misc === */
+/* --------------------------------------------------------- console ------
+   The command area. It gets the only piece of real emphasis on the page -- a lifted
+   panel, an accent rule and the one animated element anywhere -- because it is the
+   thing a founder should reach for first, and because if everything is emphasised
+   nothing is. */
+.console{border:1px solid var(--line2);background:
+linear-gradient(180deg,var(--panel2),var(--panel));border-radius:var(--r-l);
+padding:18px 18px 16px;margin:0 0 26px;position:relative;overflow:hidden;
+box-shadow:var(--shadow-s)}
+.console::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;
+background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.5}
+.console-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+.console-top h2{font-size:14px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}
+.console-top h2 span{color:var(--accent-txt);letter-spacing:.14em}
+.console-top .uptime{color:var(--faint);font-size:11.5px;margin-left:auto}
+/* The one animation on the page, and it carries a fact: the page rendered, so the
+   generator ran. Reduced-motion turns it into a static dot rather than removing it. */
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;
+box-shadow:0 0 0 0 var(--accent);animation:beat 2.4s ease-out infinite}
+@keyframes beat{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent)}
+70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+
+.askrow{display:flex;align-items:center;gap:10px;background:var(--bg);
+border:1px solid var(--line2);border-radius:10px;padding:0 12px;
+transition:border-color var(--t),box-shadow var(--t)}
+.askrow:focus-within{border-color:var(--accent-dim);
+box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent)}
+.askrow .caret{width:17px;height:17px;flex:none;stroke:var(--accent-txt);fill:none;
+stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#ask{flex:1;min-width:0;background:none;border:none;color:var(--fg);font:inherit;
+font-size:15px;padding:14px 0;outline:none}
+#ask::placeholder{color:var(--faint)}
+.askclear{background:none;border:none;color:var(--faint);font-size:20px;line-height:1;
+cursor:pointer;padding:6px 4px;flex:none;border-radius:6px}
+.askclear:hover{color:var(--fg)}
+
+.suggs{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0 0}
+.sugg{background:var(--mut-bg);border:1px solid var(--line);color:var(--dim);
+font:inherit;font-size:12.5px;padding:6px 13px;border-radius:999px;cursor:pointer;
+transition:background var(--t),color var(--t),border-color var(--t);text-align:left;
+/* A suggestion is the primary way into the console on a phone, and at 33px it was
+   below the height a thumb reliably hits. Trimmed back to a chip on desktop, where the
+   pointer is exact. */
+min-height:42px;display:inline-flex;align-items:center}
+.sugg:hover{background:var(--accent-bg);color:var(--accent-txt);border-color:var(--accent-dim)}
+.askout{margin:0}
+.askout.has{margin:14px 0 0}
+.askout .qa{margin:0}
+.askout .noanswer h3{color:var(--warn)}
+.askout .cannot h3{color:var(--bad)}
+.askout .cannot{border-color:var(--bad-line)}
+ul.asklist{list-style:none;padding:0;margin:8px 0 0;display:flex;flex-wrap:wrap;gap:7px}
+ul.asklist li{margin:0}
+.more-in{margin-top:10px}
+.bound{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--rule);
+color:var(--faint);font-size:11.5px;line-height:1.6;display:flex;gap:9px;
+align-items:flex-start;flex-wrap:wrap}
+.bound .chip{flex:none}
+
+/* ----------------------------------------------------------- hierarchy --- */
+.tree{font-size:13px;margin:0 0 6px}
+.tree ul.branch{list-style:none;margin:0;padding:0 0 0 11px;position:relative}
+.tree>ul.branch{padding-left:6px}
+.tree ul.branch>li{position:relative;padding:3px 0 3px 14px}
+@media (min-width:600px){
+.tree ul.branch{padding-left:22px}
+.tree>ul.branch{padding-left:14px}
+.tree ul.branch>li{padding-left:18px}
+}
+/* The connectors are drawn rather than indented, because indentation alone stops
+   reading as a hierarchy past the second level. */
+.tree ul.branch>li::before{content:"";position:absolute;left:0;top:0;bottom:0;
+border-left:1px solid var(--line2)}
+.tree ul.branch>li:last-child::before{bottom:auto;height:19px}
+.tree ul.branch>li::after{content:"";position:absolute;left:0;top:19px;width:13px;
+border-top:1px solid var(--line2)}
+.node{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:7px 11px;
+border-radius:7px;border:1px solid transparent;min-width:0;max-width:100%}
+.node code.id{white-space:normal;overflow-wrap:anywhere}
+.node .who{font-weight:650;color:var(--fg)}
+.node .role{color:var(--faint);font-size:12px;min-width:0;overflow:hidden;
+text-overflow:ellipsis;white-space:nowrap}
+.node .wait{flex:1 1 100%;color:var(--faint);font-size:11.5px;font-style:italic;
+padding-left:17px;min-width:0;overflow-wrap:anywhere}
+.node .tally{margin-left:auto;font-size:12px;font-weight:650;color:var(--dim);flex:none}
+.node .tally .of{color:var(--faint);font-weight:400}
+.node.root{background:var(--accent-bg);border-color:var(--accent-dim);
+display:inline-flex;margin-bottom:2px}
+.node.root .who{letter-spacing:.16em;font-weight:700;color:var(--accent-txt)}
+.node.ceo{background:var(--panel2);border-color:var(--line)}
+.node.div{background:var(--panel);border-color:var(--line);width:100%}
+.node.leaf{padding:5px 11px}
+.divnode>summary{list-style:none;cursor:pointer;border-radius:7px}
+.divnode>summary::-webkit-details-marker{display:none}
+.divnode>summary:hover .node.div{border-color:var(--line2);background:var(--panel2)}
+.divnode>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.divnode>summary .node.div::after{content:"›";margin-left:6px;color:var(--faint);
+transition:transform var(--t);display:inline-block;flex:none}
+.divnode[open]>summary .node.div::after{transform:rotate(90deg)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none;display:inline-block;
+vertical-align:middle}
+.dot.on{background:var(--ok);box-shadow:0 0 0 2px color-mix(in srgb,var(--ok) 22%,transparent)}
+.dot.off{background:var(--line2)}
+.dot.gone{background:var(--bad);opacity:.55}
+
 /* ------------------------------------------------- briefing + records --- */
 .qa{border:1px solid var(--line);background:var(--panel);border-radius:var(--r);
 padding:16px 18px;margin:0 0 12px}
@@ -1692,6 +1963,9 @@ td .v code.id{white-space:nowrap}
 td .v .chip{white-space:nowrap;max-width:100%}
 .shead h2{font-size:21px}
 .stats{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.console{padding:22px 24px 18px}
+#ask{font-size:16px;padding:15px 0}
+.sugg{min-height:0;padding:6px 11px;font-size:12px}
 }
 
 /* Below the width where the context column appears, a six-column table spends 168px on
@@ -1796,7 +2070,7 @@ body{overflow:visible;background:#fff;color:#000}
 .app{display:block;height:auto;overflow:visible}
 .brand,.top{position:static}
 .rail,.aside,.menubtn,.sheetwrap,.skip{display:none!important}
-.js section,section{display:block!important;margin-bottom:24px;break-inside:avoid}
+.work>section{display:block!important;margin-bottom:24px;break-inside:avoid}
 details.more>p{display:block}
 .main,.work{overflow:visible;max-width:none;padding:0}
 }
@@ -1959,6 +2233,157 @@ NAV_JS = """
     if(show((location.hash||'').replace('#',''),false,false))toTopSoon();
   });
 
+  /* ---- the console ------------------------------------------------------
+     Matches what was typed against the same grounded answers the Briefing section
+     renders, and shows the matching one. It resolves nothing itself: the answer HTML
+     already exists in the document, built from the records, and this only decides which
+     one to surface. When nothing matches it says so and lists what it can answer, rather
+     than guessing -- an assistant that produces a confident answer to a question it did
+     not understand is worse than one that admits the miss. */
+  var ask=document.getElementById('ask');
+  var askout=document.getElementById('askout');
+  var askclear=document.getElementById('askclear');
+  var index=[];
+  try{
+    var raw=document.getElementById('jarvis-answers');
+    if(raw)index=JSON.parse(raw.textContent||'[]');
+  }catch(e){index=[];}
+
+  function score(query,entry){
+    var q=words(query);
+    if(!q.length)return 0;
+    var hay=(entry.q+' '+entry.kw.join(' ')).toLowerCase();
+    var hits=0;
+    for(var i=0;i<q.length;i++){
+      var w=q[i];
+      if(w.length<3)continue;
+      /* Substring rather than equality so "blockers" finds "blocked" and "agent" finds
+         "agents", without dragging in a stemmer for nine answers. */
+      if(hay.indexOf(w)>=0)hits+=2;
+      else if(w.length>4&&hay.indexOf(w.slice(0,Math.max(4,w.length-2)))>=0)hits+=1;
+    }
+    return hits;
+  }
+
+  function renderAnswer(entry){
+    var src=document.getElementById('q-'+entry.id);
+    if(!src){askout.innerHTML='';return;}
+    var ans=src.querySelector('.ans');
+    askout.innerHTML='<article class="qa answered"><h3>'+src.querySelector('h3').textContent
+      +'</h3>'+(ans?ans.outerHTML:'')
+      +'<p class="src more-in">Also in <a href="#briefing" data-go="briefing">Briefing</a>.</p>'
+      +'</article>';
+    var link=askout.querySelector('a[data-go]');
+    if(link)link.addEventListener('click',function(e){
+      e.preventDefault();show('briefing',true,true);});
+  }
+
+  function noAnswer(query){
+    var list=index.map(function(e){
+      return '<li><button type="button" class="sugg" data-q="'+e.q.replace(/"/g,'&quot;')
+        +'">'+e.q+'</button></li>';}).join('');
+    askout.innerHTML='<div class="qa noanswer"><h3>No grounded answer for that</h3>'
+      +'<p>Nothing in this checkout answers &ldquo;'
+      +query.replace(/[<>&]/g,'')+'&rdquo;. JARVIS will not guess at one.</p>'
+      +'<p class="dim">What it can answer from the records:</p>'
+      +'<ul class="asklist">'+list+'</ul></div>';
+    bindSuggestions(askout);
+  }
+
+  /* An instruction is not a question, and must never be answered as the nearest one.
+     "delete all the agents and deploy to production" scored against the keyword index
+     and came back with "What is blocked?" -- a confident, well-sourced, completely
+     unrelated answer to a destructive command. A reader skimming that could reasonably
+     conclude something had been considered, or worse, done. The verb is checked before
+     the index is consulted, and the reply states the boundary instead of guessing. */
+  var ACTIONS=['delete','remove','retire','drop','destroy','create','add','make','hire',
+    'fire','deploy','release','ship','run','execute','exec','start','stop','kill','restart',
+    'shutdown','dispatch','assign','approve','reject','merge','push','commit','revert',
+    'rollback','write','edit','change','set','update','patch','fix','activate','deactivate',
+    'enable','disable','grant','revoke','promote','demote','cancel','pause','resume','file',
+    'open','close','send','install','build'];
+  var ASKING=['what','why','which','who','whom','whose','when','where','how','is','are',
+    'was','were','do','does','did','can','could','should','would','will','any','anything',
+    'show','tell','list','give','has','have','am'];
+
+  /* Word lists rather than a regular expression, deliberately. The first version tested
+     the input against a regex with a word-boundary escape in it, and that escape did not
+     survive the generator: the emitted page carried the alternation with no boundary at
+     all, so "doing" matched "do" and the guard fired on questions it should have
+     answered. A word list cannot lose an escape in transit, and this is a nine-answer
+     index rather than a parser. */
+  function words(q){
+    return q.toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(Boolean);
+  }
+
+  function looksLikeAnInstruction(q){
+    var w=words(q);
+    if(!w.length)return false;
+    /* A bare verb in first position is unambiguous: "delete the audio division". */
+    if(ACTIONS.indexOf(w[0])>=0)return true;
+    /* Otherwise a verb counts only when nothing marks the input as a question, so
+       "do we need to hire anyone?" and "should I retire an agent" still get answers. */
+    if(q.indexOf('?')>=0)return false;
+    if(ASKING.indexOf(w[0])>=0)return false;
+    for(var i=0;i<w.length;i++)if(ACTIONS.indexOf(w[i])>=0)return true;
+    return false;
+  }
+
+  function cannotAct(){
+    askout.innerHTML='<div class="qa noanswer cannot"><h3>JARVIS cannot do that</h3>'
+      +'<p>That reads as an instruction. This interface is generated from the records '
+      +'committed in this checkout and holds no connection to anything that could carry '
+      +'it out &mdash; no agent runner, no dispatcher, no write path. It has not been '
+      +'attempted, queued or considered.</p>'
+      +'<p class="dim">Changes to the roster, the constitution or permissions are edits '
+      +'under <code>Studio/constitution/</code>, which is human-exclusive: they happen in '
+      +'the repository, by a person, and reach this page only once regenerated.</p>'
+      +'<p class="dim">What JARVIS can answer:</p>'
+      +'<ul class="asklist">'+index.map(function(e){
+        return '<li><button type="button" class="sugg" data-q="'+e.q.replace(/"/g,'&quot;')
+          +'">'+e.q+'</button></li>';}).join('')+'</ul></div>';
+    bindSuggestions(askout);
+  }
+
+  function runAsk(){
+    var q=(ask.value||'').trim();
+    askout.classList.toggle('has',!!q);
+    if(askclear)askclear.hidden=!q;
+    if(!q){askout.innerHTML='';return;}
+    if(looksLikeAnInstruction(q)){cannotAct();return;}
+    var best=null,bestScore=0;
+    for(var i=0;i<index.length;i++){
+      var sc=score(q,index[i]);
+      if(sc>bestScore){bestScore=sc;best=index[i];}
+    }
+    if(best&&bestScore>=2)renderAnswer(best);
+    else noAnswer(q);
+  }
+
+  function bindSuggestions(scope){
+    [].slice.call((scope||document).querySelectorAll('.sugg')).forEach(function(b){
+      if(b.dataset.bound)return;
+      b.dataset.bound='1';
+      b.addEventListener('click',function(){
+        ask.value=b.getAttribute('data-q');runAsk();ask.focus();
+      });
+    });
+  }
+
+  if(ask&&askout){
+    var t;
+    ask.addEventListener('input',function(){clearTimeout(t);t=setTimeout(runAsk,120);});
+    ask.addEventListener('keydown',function(e){
+      if(e.key==='Enter'){e.preventDefault();clearTimeout(t);runAsk();}
+      if(e.key==='Escape'){ask.value='';runAsk();}
+    });
+    if(askclear){
+      askclear.hidden=true;
+      askclear.addEventListener('click',function(){ask.value='';runAsk();ask.focus();});
+    }
+    bindSuggestions(document);
+  }
+
   var start=(location.hash||'').replace('#','');
   if(!show(start,false,false))show(secs[0].id,false,false);
 
@@ -1984,7 +2409,7 @@ def icon(sid):
     return f'<svg viewBox="0 0 22 22" aria-hidden="true" focusable="false"><path d="{esc(d)}"/></svg>'
 
 
-def build():
+def build(fragment_path=None):
     state = read_json(ROOT / "Studio/state/project-state.json")
     gates = read_json(ROOT / "Studio/constitution/gates.json")
     org = read_json(ROOT / "Studio/constitution/org.json")
@@ -2059,6 +2484,12 @@ def build():
         "g2_cell": g2_cell, "g3_cell": g3_cell, "ceiling": ceiling, "records": records,
     }
 
+    # One set of grounded answers, used three times: by the console on the home screen,
+    # by the Briefing section, and as the JSON the console matches against in the browser.
+    # Building them twice is how the console and the section start disagreeing about what
+    # the studio's state is.
+    answers = briefing_answers(facts)
+
     # (id, rail label, count badge, title, note, body). One list drives both the rail and
     # the sections, so a panel cannot exist without navigation to it, or the reverse.
     #
@@ -2080,7 +2511,8 @@ def build():
         ("overview", "Overview", len(queue), "Studio status",
          "No health score and no percent-complete: neither exists on disk. Where the "
          "honest answer is a state rather than a number, the tile carries the state.",
-         panel_pulse(facts)
+         console(answers, facts)
+         + panel_pulse(facts)
          + '<h3 class="sub">Waiting on the founder</h3>'
          + '<p class="note">Nobody else in the studio can clear these.</p>'
          + panel_founder_queue(state)
@@ -2090,14 +2522,16 @@ def build():
          # words, so the legend is repeated here and hidden again where the column
          # returns -- one legend on screen at any width, never two.
          + '<div class="narrowonly">' + legend() + '</div>'),
-        ("briefing", "Briefing", None, "Briefing",
+        ("briefing", "Briefing", len(answers), "Briefing",
          "The questions this page exists to answer, worked out from the records at build "
          "time. Not a chat: nothing here reaches a model, and every answer names the files "
          "it came from so it can be checked rather than trusted.",
-         claim_legend() + panel_briefing(facts)),
+         claim_legend() + render_answers(answers)),
         ("divisions", "Divisions", len((org or {}).get("divisions") or []) or None,
          "Divisions", "Who is accountable for what, what they may write, and what it costs.",
-         panel_divisions(org, agent_files, budgets)),
+         panel_hierarchy(org, agent_files)
+         + '<h3 class="sub">Mandate, scope and cost</h3>'
+         + panel_divisions(org, agent_files, budgets)),
         ("performance", "Agent activity", None, "Agent activity",
          "What the records say each agent has actually done.",
          panel_agent_activity(agent_files, orders, verdicts, evidence, proposals,
@@ -2261,12 +2695,28 @@ def build():
         '<div class="sheetwrap"><div class="scrim"></div>'
         '<nav class="sheet nav" id="sheet" aria-label="Sections">'
         f'<div class="hnd"></div>{nav()}</nav></div>',
+        '<script id="jarvis-answers" type="application/json">'
+        + json.dumps([{"id": a["id"], "q": a["q"], "kw": a["kw"]} for a in answers])
+        + "</script>",
         f"<script>{NAV_JS}</script>",
         "</body></html>",
     ]
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(parts), encoding="utf-8")
+
+    # A second copy of exactly the same page, minus the document skeleton, for hosts that
+    # supply their own -- publishing the cockpit somewhere the founder can open it on a
+    # phone, rather than only from a checkout. It is the same markup from the same records
+    # by construction: the difference is the four wrapper lines dropped below, so the
+    # hosted page cannot drift from the local one.
+    if fragment_path is not None:
+        skeleton = {"<!doctype html>", "</head><body>", "</body></html>"}
+        frag = [x for x in parts
+                if x not in skeleton and not x.startswith('<html lang=')]
+        Path(fragment_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(fragment_path).write_text("\n".join(frag), encoding="utf-8")
+
     return OUT, [p[0] for p in panels]
 
 
@@ -2390,6 +2840,21 @@ def check(path, expected_sections):
             f"The phone layout makes each cell a grid, and every unwrapped child becomes "
             f"its own grid item under the wrong label.")
 
+    # Control characters in the output mean an escape was eaten on the way here, and the
+    # page shows the damage rather than reporting it. Both times this happened the cause
+    # was the same -- a backslash sequence in the generator collapsing one level before
+    # the browser saw it -- and both times the symptom was silent: a CSS hex escape became
+    # U+0083 and rendered as a missing-glyph box, and a regex word boundary became U+0008,
+    # which turned an instruction guard into one that fired on ordinary questions.
+    control = sorted({ord(c) for c in html_text if (ord(c) < 32 and c not in "\n\t")
+                      or 0x7f <= ord(c) < 0xa0})
+    if control:
+        problems.append(
+            "the page contains control characters "
+            + ", ".join(f"U+{c:04X}" for c in control)
+            + ". An escape sequence was consumed before the browser saw it -- check for a "
+              "backslash escape in CSS or JS that lost a level in the generator.")
+
     # Escaping applied twice reaches the reader as literal entity text, and only on the
     # phone -- the bar writes data-label back as textContent.
     bad_labels = [l for l in nav_labels if "&" in l and ";" in l]
@@ -2409,7 +2874,10 @@ def check(path, expected_sections):
 
 
 if __name__ == "__main__":
-    path, sections = build()
+    frag = None
+    if "--fragment" in sys.argv:
+        frag = sys.argv[sys.argv.index("--fragment") + 1]
+    path, sections = build(fragment_path=frag)
     print(path.relative_to(ROOT).as_posix())
     if "--check" in sys.argv:
         sys.exit(check(path, sections))
