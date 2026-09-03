@@ -111,16 +111,31 @@ before asking; it is not permission.
 
 ## Projects
 
-JARVIS is the studio layer; each project is a product underneath it.
+JARVIS is the studio layer. Each project is a separate product in its **own repository**,
+referred to rather than contained.
 
-    JARVIS  (Studio/**, .claude/agents/**, .github/workflows/**)
-      └── mergesurvivor  (Assets/**, Packages/**, ProjectSettings/**)
+    robinbanks000/JARVIS          the studio layer
+      └── mergesurvivor           robinbanks000/MergeSurvivor @ main
+                                  owns Assets/**, Packages/**, ProjectSettings/**
+                                  — in ITS repository, never in this one
 
-Adding a project means appending an entry to `Studio/constitution/projects.json` — not
-restructuring anything above it. Two checks defend the boundary in both directions:
-`NoProjectClaimsAPathInsideTheStudioLayer`, and `NoProjectFileReachesIntoTheStudioLayer`,
-which reads every tracked file inside a project and fails if it so much as mentions a
-studio path.
+`Studio/constitution/projects.json` is the integration boundary. A project entry carries
+`repo` (owner/name) and `ref` (the branch JARVIS treats as its current state); `owns`
+describes what that project holds **in its own repository**. Adding a second project means
+appending an entry — not restructuring anything above it.
+
+Two checks defend the boundary in both directions:
+
+- `NoProjectClaimsAPathInsideTheStudioLayer` — no project may claim a studio path.
+- `NoProjectOwnedPathExistsInTheStudioRepository` — no file belonging to an externally
+  hosted project may exist here. Absence is the whole property: put `Assets/` back into
+  this repository and the build fails.
+
+The second check compares each project's `repo` against the repository the checkout came
+from, so it enforces only where enforcement means something. A project hosted in the same
+repository as the studio layer is exempt and the test says so in its output — which is
+how it behaved before the separation, and why it did not fail on a combined repository
+that had done nothing wrong.
 
 ## Verifying a change
 

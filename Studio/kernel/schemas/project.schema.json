@@ -26,6 +26,16 @@
       "required": ["id", "name", "kind", "status", "owns", "verifiedByGates", "summary"],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,40}$" },
+        "repo": {
+          "description": "The GitHub repository the project lives in, as owner/name. Absent means the project shares this repository with the studio layer, which is how things stood before JARVIS was separated. Present and different from the studio's own repository means the project is external: its files must NOT exist here, and NoProjectOwnedPathExistsInTheStudioRepository enforces exactly that. This field is the integration boundary -- JARVIS refers to a project rather than containing it.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "ref": {
+          "description": "The branch or tag JARVIS treats as this project's current state. Only meaningful alongside repo. It is deliberately a name rather than a commit: a pinned SHA would make the studio's view of a project go stale silently, and the whole point of naming a ref is that the project moves under it.",
+          "type": "string",
+          "minLength": 1
+        },
         "name": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/nonEmptyString" },
         "kind": {
           "type": "string",
@@ -53,7 +63,14 @@
           "items": { "$ref": "https://mergesurvivor.studio/kernel/common.schema.json#/$defs/divisionId" }
         },
         "notes": { "type": "string" }
-      }
+      },
+      "allOf": [
+        {
+          "description": "A ref names a point inside a repository. Without repo there is nothing for it to name, and a lone ref would read as though the studio tracked a branch it has no way to reach.",
+          "if": { "required": ["ref"] },
+          "then": { "required": ["repo"] }
+        }
+      ]
     }
   }
 }

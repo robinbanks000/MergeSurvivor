@@ -256,22 +256,50 @@ namespace MergeSurvivor.Kernel.Tests
         }
 
         [Test]
-        public void NoProjectFileReachesIntoTheStudioLayer()
+        public void NoProjectOwnedPathExistsInTheStudioRepository()
         {
-            // The other direction, and the one that matters most in practice: studio
-            // tooling must never ship inside a product. JARVIS is a page generated from
-            // the studio's own records and has no business in a game build; a game that
-            // imports it would carry the studio's branding, its navigation and its state
-            // into a shipped artifact.
+            // The founder's rule, enforced from this side once JARVIS is its own
+            // repository: a project hosted elsewhere must not have its files here.
             //
-            // Textual on purpose. A C# using-directive, a Unity asset reference and an
-            // asmdef entry look nothing alike, and the thing they would have in common is
-            // the path. Tracked files only, so a local scratch file cannot fail the build.
-            var studioPrefixes = Strings(Projects["studioPaths"]).Select(Prefix).ToList();
+            // This replaces NoProjectFileReachesIntoTheStudioLayer, which read every
+            // tracked file under a project's owns paths and failed if one so much as
+            // mentioned a studio path. That check was right while both lived in one
+            // repository and becomes worthless the moment they do not -- with no
+            // Assets/ to scan it passes because there is nothing to look at, which is
+            // the shape of a test that has quietly stopped testing anything.
+            //
+            // The invariant that survives separation is stronger and cheaper: the files
+            // must not BE here. Absence is the whole property. Put Assets/ back into the
+            // studio repository -- by a merge, a stray copy, or someone undoing the
+            // split -- and the build fails immediately.
+            //
+            // Scoped by repository identity rather than applied blindly, because the
+            // same records describe both worlds. A project whose repo matches the one
+            // this checkout came from is not external, and demanding its files be absent
+            // would fail on a combined repository that has done nothing wrong. So the
+            // check enforces only where it is meaningful, and says which case it took.
+            string origin = OriginRepository();
             var offenders = new List<string>();
+            var skipped = new List<string>();
 
             foreach (JsonNode project in Projects["projects"].AsArray())
             {
+                JsonNode repoNode = project["repo"];
+                string id = project["id"].GetValue<string>();
+
+                if (repoNode == null)
+                {
+                    skipped.Add($"{id} (no repo declared: shares this repository)");
+                    continue;
+                }
+
+                string repo = repoNode.GetValue<string>();
+                if (origin != null && string.Equals(repo, origin, StringComparison.OrdinalIgnoreCase))
+                {
+                    skipped.Add($"{id} (hosted in this same repository, {repo})");
+                    continue;
+                }
+
                 foreach (string ownedGlob in Strings(project["owns"]))
                 {
                     string root = Prefix(ownedGlob).TrimEnd('/');
@@ -282,28 +310,65 @@ namespace MergeSurvivor.Kernel.Tests
 
                     foreach (string file in Kernel.TrackedFiles(root))
                     {
-                        string absolute = Path.Combine(Kernel.RepoRoot, file.Replace('/', Path.DirectorySeparatorChar));
-                        if (!File.Exists(absolute) || IsBinary(absolute))
-                        {
-                            continue;
-                        }
-
-                        string text = File.ReadAllText(absolute);
-
-                        foreach (string studioPrefix in studioPrefixes)
-                        {
-                            if (text.Contains(studioPrefix, StringComparison.OrdinalIgnoreCase))
-                            {
-                                offenders.Add($"{file} references '{studioPrefix}'");
-                            }
-                        }
+                        offenders.Add($"{file} belongs to {id}, which lives in {repo}");
                     }
                 }
             }
 
             Assert.That(offenders, Is.Empty,
-                "Project files referencing the studio layer:\n" + string.Join("\n", offenders)
-                + "\nThe studio operates the products; it does not ship inside them.");
+                $"This repository ({origin ?? "origin unknown"}) tracks files owned by a project "
+                + "hosted elsewhere:\n" + string.Join("\n", offenders.Take(20))
+                + (offenders.Count > 20 ? $"\n... and {offenders.Count - 20} more" : "")
+                + "\nThe studio operates its projects; it does not contain them.");
+
+            // Not an assertion, a receipt. A reader of a green run should be able to see
+            // whether the check enforced anything or found every project to be local.
+            TestContext.WriteLine(skipped.Count == 0
+                ? $"Enforced against every project; origin {origin ?? "unknown"}."
+                : "Not enforced for: " + string.Join(", ", skipped));
+        }
+
+        /// <summary>
+        /// owner/name of the repository this checkout came from, or null when it cannot
+        /// be determined -- no remote, a local path, an unrecognised URL. Null disables
+        /// the same-repository exemption above rather than the check itself: an unknown
+        /// origin must not silently turn enforcement off.
+        /// </summary>
+        private static string OriginRepository()
+        {
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "git",
+                WorkingDirectory = Kernel.RepoRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+            startInfo.ArgumentList.Add("remote");
+            startInfo.ArgumentList.Add("get-url");
+            startInfo.ArgumentList.Add("origin");
+
+            string url;
+            try
+            {
+                using var process = System.Diagnostics.Process.Start(startInfo);
+                url = process.StandardOutput.ReadToEnd().Trim();
+                process.WaitForExit();
+                if (process.ExitCode != 0)
+                {
+                    return null;
+                }
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+
+            // https://github.com/owner/name(.git) and git@github.com:owner/name(.git)
+            var match = System.Text.RegularExpressions.Regex.Match(
+                url, @"[:/]([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$");
+
+            return match.Success ? $"{match.Groups[1].Value}/{match.Groups[2].Value}" : null;
         }
 
         [Test]
@@ -350,13 +415,5 @@ namespace MergeSurvivor.Kernel.Tests
             return star < 0 ? glob : glob.Substring(0, star);
         }
 
-        private static bool IsBinary(string path)
-        {
-            using FileStream stream = File.OpenRead(path);
-            Span<byte> head = stackalloc byte[512];
-            int read = stream.Read(head);
-
-            return head.Slice(0, read).IndexOf((byte)0) >= 0;
-        }
     }
 }

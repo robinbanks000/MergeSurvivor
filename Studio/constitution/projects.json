@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "updatedAt": "2026-08-31T08:00:00Z",
+  "version": 2,
+  "updatedAt": "2026-09-03T00:00:00Z",
   "studioPaths": [
     "Studio/**",
     ".claude/agents/**",
@@ -9,6 +9,8 @@
   "projects": [
     {
       "id": "mergesurvivor",
+      "repo": "robinbanks000/MergeSurvivor",
+      "ref": "main",
       "name": "MergeSurvivor",
       "kind": "game",
       "status": "active",
@@ -18,7 +20,13 @@
         "Packages/**",
         "ProjectSettings/**"
       ],
-      "verifiedByGates": ["G1", "G2", "G3", "G4", "G5"],
+      "verifiedByGates": [
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G5"
+      ],
       "divisions": [
         "product-design",
         "engineering",
@@ -27,7 +35,7 @@
         "content-art",
         "audio"
       ],
-      "notes": "The game carries no studio tooling and no cockpit UI. The only studio-owned paths that mention it are the gate scripts under Studio/build, which compile and test Assets/Core from outside; nothing under Assets imports anything from Studio."
+      "notes": "The game is a separate repository. JARVIS refers to it through repo and ref and owns none of its files: the paths under owns describe what MergeSurvivor holds in ITS repository, not anything here. NoProjectOwnedPathExistsInTheStudioRepository enforces the separation from this side -- once the studio layer lives in its own repository, an Assets/ directory appearing here fails the build. The only studio-owned code that ever reached into the game was the gate machinery under Studio/build that compiled Assets/Core from outside; it stayed with the game when JARVIS was separated. Nothing under Assets ever imported anything from Studio."
     }
   ]
 }

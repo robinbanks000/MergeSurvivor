@@ -1100,8 +1100,14 @@ def panel_projects(projects):
     rows = []
     for p in projects.get("projects", []):
         divisions = p.get("divisions")
+        repo = p.get("repo")
+        where = (f'<code class="id">{esc(repo)}</code>'
+                 + (f'<br><span class="dim">@ {esc(p.get("ref"))}</span>' if p.get("ref") else "")
+                 if repo else
+                 '<span class="dim">this repository</span>')
         rows.append([
             f'<strong>{esc(p.get("name", "?"))}</strong><br><code>{esc(p.get("id", "?"))}</code>',
+            where,
             chip(p.get("kind", "?"), "neutral"),
             chip(p.get("status", "?"), tone.get(p.get("status"), "neutral")),
             "<br>".join(f'<code>{esc(o)}</code>' for o in (p.get("owns") or []))
@@ -1113,11 +1119,19 @@ def panel_projects(projects):
         ])
 
     studio = "".join(f'<li><code>{esc(x)}</code></li>' for x in (projects.get("studioPaths") or []))
+    external = [p for p in (projects.get("projects") or []) if p.get("repo")]
     note = (f'<p class="note">{claim_chip("fact")} The studio layer owns these paths, and no '
             f'project may claim any of them:</p><ul class="paths">{studio}</ul>')
+    if external:
+        note += (f'<p class="note">{claim_chip("fact")} '
+                 f'{len(external)} project(s) live in their own repository. JARVIS refers to '
+                 f'them by <code>repo</code> and <code>ref</code> and holds none of their files; '
+                 f'the Owns column below describes what each project keeps in ITS repository, '
+                 f'not anything here. A file belonging to an external project appearing in this '
+                 f'repository fails the build.</p>')
     return note + table(
-        ["Project", "Kind", "Status", "Owns", "Gates", "Staffed by"], rows,
-        widths=["20ch", "10ch", "11ch", "26ch", "20ch", "auto"])
+        ["Project", "Repository", "Kind", "Status", "Owns", "Gates", "Staffed by"], rows,
+        widths=[None, None, "10ch", "11ch", "24ch", "18ch", "auto"])
 
 
 def panel_gaps(gaps, projects):
