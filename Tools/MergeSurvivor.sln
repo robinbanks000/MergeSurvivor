@@ -1,0 +1,26 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+#
+# The game's Core compiled and tested with the plain dotnet toolchain, no Unity
+# licence required. The kernel test project that used to sit alongside these left
+# with the studio layer when JARVIS became its own repository.
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MergeSurvivor.Core.Build", "MergeSurvivor.Core.Build\MergeSurvivor.Core.Build.csproj", "{2E1B7A44-9C3D-4A1E-9C21-0A5B6D7E8F01}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MergeSurvivor.Core.Tests", "MergeSurvivor.Core.Tests\MergeSurvivor.Core.Tests.csproj", "{3F2C8B55-AD4E-4B2F-AD32-1B6C7E8F9012}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2E1B7A44-9C3D-4A1E-9C21-0A5B6D7E8F01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2E1B7A44-9C3D-4A1E-9C21-0A5B6D7E8F01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2E1B7A44-9C3D-4A1E-9C21-0A5B6D7E8F01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2E1B7A44-9C3D-4A1E-9C21-0A5B6D7E8F01}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F2C8B55-AD4E-4B2F-AD32-1B6C7E8F9012}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F2C8B55-AD4E-4B2F-AD32-1B6C7E8F9012}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F2C8B55-AD4E-4B2F-AD32-1B6C7E8F9012}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F2C8B55-AD4E-4B2F-AD32-1B6C7E8F9012}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

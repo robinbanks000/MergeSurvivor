@@ -1,0 +1,58 @@
+name: G2 Code Gate
+
+# The gate that has no override. If this is red, nothing merges.
+#
+# Every check runs through ./Tools/gate-g2.sh — the same script the founder
+# runs locally. Reimplementing the steps in YAML would let CI and local runs drift
+# apart, and "it passes on my machine" is exactly the failure this gate exists to
+# prevent.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: g2-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: T0 static + T1 unit and contract tests
+    runs-on: ubuntu-latest
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      DOTNET_NOLOGO: 1
+      # Branch convention from the architecture: agents work on agent/<name>/<WO-id>.
+      # This is what makes "an agent may not edit its own gate" mechanical rather
+      # than a matter of trust.
+      AGENT_AUTHORED: ${{ startsWith(github.head_ref || github.ref_name, 'agent/') && '1' || '0' }}
+
+    steps:
+
+      # Evidence emission removed with the split. emit-evidence.sh, the evidence
+      # schema and the kernel manifest that governs these records all live in the
+      # JARVIS repository now, and a record written here would have nothing to
+      # validate it and nowhere to be filed. Reporting this gate's result back to
+      # JARVIS across repositories is a real gap and an open integration question;
+      # a step that silently fails would not have answered it.
+      - uses: actions/checkout@v4
+        with:
+          # The forbidden-remedy check diffs against the merge base, which needs
+          # real history. A shallow clone would make it silently check nothing.
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Tools/**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Run G2
+        run: ./Tools/gate-g2.sh

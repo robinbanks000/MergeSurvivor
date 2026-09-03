@@ -1,0 +1,162 @@
+name: G3 Integration Gate
+
+# Unity EditMode and PlayMode tests via GameCI.
+#
+# This gate used to skip when Unity credentials were absent, on the reasoning
+# that a permanently red gate gets ignored. Sixteen runs later the cost of that
+# reasoning was measurable: G3 reported `success` every single time while running
+# zero Unity tests, because GitHub scores a workflow whose only executed job
+# passed as a passing workflow. Once main became branch-protected, that turned
+# from a cosmetic lie into a merge path for unverified Unity code.
+#
+# So the job now always runs and fails loudly when it cannot verify anything,
+# with the remedy printed in the failure itself. A red gate that names its own
+# fix is honest; a green one that checked nothing is not.
+#
+# Always-running also fixes a second defect the skip caused. A skipped matrix job
+# never expands its matrix, so both test modes collapsed into a single check
+# literally named "Unity ${{ matrix.testMode }}" — an un-interpolated expression
+# that branch protection can never match. The job names below only become real,
+# requirable checks (`Unity editmode`, `Unity playmode`) because the job runs.
+
+on:
+  # Deliberately not `branches: ['**']`. Every commit used to run this twice —
+  # once for the push, once for the pull request, same SHA, same result. Actions
+  # minutes are free on a public repo, but a Unity job takes 10-20 minutes and
+  # the duplicate buys nothing.
+  push:
+    branches: [main]
+  pull_request:
+  # So credentials can be tested the moment they are added, without an empty
+  # commit to kick CI — which studio doctrine forbids anyway.
+  workflow_dispatch:
+
+# Least privilege, stated in the file rather than left to a repository-wide
+# setting. `checks: write` is what unity-test-runner needs to publish its results
+# as a check run; everything else it does is reads.
+permissions:
+  contents: read
+  checks: write
+
+concurrency:
+  group: g3-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Unity ${{ matrix.testMode }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        testMode: [editmode, playmode]
+
+    steps:
+
+      # Evidence emission removed with the split -- emit-evidence.sh and the schema
+      # that governs these records live in the JARVIS repository now. Reporting this
+      # gate's result back to JARVIS across repositories is an open integration
+      # question; a step that silently fails would not have answered it.
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # Before the cache and before Unity, but after checkout, because the
+      # evidence emitter below lives in the repository and must be reachable
+      # even on the failure path.
+      - name: Require Unity credentials
+        id: creds
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        run: |
+          if [ -n "$UNITY_LICENSE" ]; then
+            echo "Unity credentials present."
+            exit 0
+          fi
+
+          {
+            echo "### G3 cannot verify anything: Unity credentials are missing"
+            echo ""
+            echo "This gate fails rather than skips. A skipped job reports success,"
+            echo "and a gate that reports success without running is worse than no"
+            echo "gate — it is a merge path wearing a green tick."
+            echo ""
+            echo "Add these three repository secrets under"
+            echo "**Settings -> Secrets and variables -> Actions**:"
+            echo ""
+            echo "| Secret | Value |"
+            echo "|---|---|"
+            echo "| \`UNITY_LICENSE\` | the full contents of \`Unity_lic.ulf\` |"
+            echo "| \`UNITY_EMAIL\` | the email the Unity account uses |"
+            echo "| \`UNITY_PASSWORD\` | that account's password |"
+            echo ""
+            echo "The \`.ulf\` is written by Unity Hub after"
+            echo "**Preferences -> Licenses -> Add -> Get a free personal license**:"
+            echo ""
+            echo "- Windows: \`C:\\ProgramData\\Unity\\Unity_lic.ulf\`"
+            echo "- macOS: \`/Library/Application Support/Unity/Unity_lic.ulf\`"
+            echo "- Linux: \`~/.local/share/unity3d/Unity/Unity_lic.ulf\`"
+            echo ""
+            echo "Then re-run this workflow from the Actions tab. Until it is green,"
+            echo "do not add G3 to the required checks on \`main\`."
+            echo ""
+            echo "Core logic remains fully covered by G2, which needs no licence."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "::error::G3 cannot run: UNITY_LICENSE is not configured. See the job summary for the three secrets required."
+          exit 1
+
+      # Library/ is expensive to rebuild and is gitignored, so it is cached per
+      # test mode. The Unity version itself is read from ProjectVersion.txt by the
+      # action, which keeps CI and the local editor on one source of truth.
+      - uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-${{ matrix.testMode }}-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-${{ matrix.testMode }}-
+            Library-
+
+      - uses: game-ci/unity-test-runner@v4
+        id: run
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          testMode: ${{ matrix.testMode }}
+          artifactsPath: ${{ matrix.testMode }}-results
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          checkName: G3 ${{ matrix.testMode }} results
+          # No coverageEnabled input here on purpose. An earlier revision passed
+          # `coverageEnabled: false`, which the v4 tag does not accept -- that
+          # input exists on the action's main branch, and this file was written
+          # against main rather than against the tag it actually pins. The run
+          # answered with "Unexpected input(s) 'coverageEnabled'" and carried on
+          # with coverage enabled, so the setting did nothing while the comment
+          # beside it claimed coverage was off. A workflow that misdescribes
+          # itself is the same defect class this gate was rewritten to remove,
+          # so the input is gone rather than corrected.
+          #
+          # v4 offers no switch to disable coverage. With
+          # com.unity.testtools.codecoverage absent from Packages/manifest.json
+          # the runner prints "Coverage results directory does not exist" and
+          # exits successfully, which is harmless. Revisit if a gate ever
+          # consumes a coverage number.
+
+      # Guarded on the runner having actually started. With a bare `always()` this
+      # step fires even when the credentials check aborted the job, and then
+      # artifactsPath is an empty string — which upload-artifact rejects with
+      # "Input required and not supplied: path", burying a second red error under
+      # the real one.
+      - name: Upload test results
+        if: always() && steps.run.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: g3-${{ matrix.testMode }}-results
+          path: ${{ steps.run.outputs.artifactsPath }}
+          if-no-files-found: warn
+
+      # G2 and G4 both turn their runs into kernel evidence; G3 did not, despite
+      # gates.json declaring it blocking and claiming a T2 tier. A blocking gate
+      # that leaves no record is a gate nothing downstream can reason about.

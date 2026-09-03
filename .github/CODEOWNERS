@@ -1,0 +1,21 @@
+# Paths the founder must review before anything merges.
+#
+# These are the places where a change can disable the system's own safeguards, so
+# they are never left to an automated approval. CODEOWNERS only has force once
+# branch protection is enabled for the default branch with "Require review from
+# Code Owners" turned on — until then this file documents intent but enforces
+# nothing.
+
+# The gate machinery. Both halves matter: the workflow calls gate-g2.sh, so write
+# access to that script is write access to the gate itself.
+/.github/                   @robinbanks000
+/Tools/                     @robinbanks000
+
+# The constitution and the contracts that encode it.
+
+# Unity project configuration, including the pinned editor version CI builds against.
+/ProjectSettings/           @robinbanks000
+
+# Anything touching money or player data.
+/Assets/Monetization/       @robinbanks000
+/Assets/Analytics/          @robinbanks000
