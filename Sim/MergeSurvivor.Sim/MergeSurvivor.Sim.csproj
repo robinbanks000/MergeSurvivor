@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The headless balance harness. It exists because Core is deterministic and
+    engine-free: the same seed produces the same run here as it does in the
+    editor, so a result from CI is comparable with a result from the founder's
+    machine. Everything it measures comes from Assets/Core.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>MergeSurvivor.Sim</AssemblyName>
+    <RootNamespace>MergeSurvivor.Sim</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../Tools/MergeSurvivor.Core.Build/MergeSurvivor.Core.Build.csproj" />
+  </ItemGroup>
+
+</Project>
